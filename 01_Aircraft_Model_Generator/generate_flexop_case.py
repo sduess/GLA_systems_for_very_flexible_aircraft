@@ -92,8 +92,6 @@ def generate_flexop_case(u_inf,
 
     # Setup gust
     gust_settings = kwargs.get('gust_settings', {'use_gust': False})
-    if gust_settings['use_gust']:
-        gust_settings['gust_offset'] *= dt * u_inf # TODO: define offset independed of dt and velocity!
 
     # Numerics
     structural_relaxation_factor = 0.6

@@ -14,7 +14,7 @@ Usage:
 import sys
 sys.path.insert(1,'../../01_Aircraft_Model_Generator')
 from generate_flexop_case import generate_flexop_case
-import numpy as np
+
 
 # Define simulation parameters
 
@@ -101,7 +101,6 @@ for gust_length in list_gust_lengths:
         int(not simulation_settings['wake_discretisation']),
         int(u_inf)
     )
-    case_name = 'flexop_visualization'
     
     # Include 'nonlifting' in the case name if nonlifting bodies are considered
     if not simulation_settings["lifting_only"]:
