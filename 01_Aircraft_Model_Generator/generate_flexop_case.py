@@ -3,13 +3,13 @@ import flexop as aircraft
 import numpy as np
 from helper_functions.get_settings import get_settings
 
-cases_route = '../../cases/'
 
 def generate_flexop_case(u_inf,
                         rho,
                         flow,
                         initial_trim_values,
                         case_name,
+                        cases_route = '../../cases/',
                         **kwargs):
     """
     Generate and configure a FLEXOP aircraft model for a simulation case.
