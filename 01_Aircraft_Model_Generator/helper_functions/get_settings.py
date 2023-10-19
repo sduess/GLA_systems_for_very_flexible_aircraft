@@ -247,7 +247,7 @@ def get_settings(flexop_model, flow, dt, **kwargs):
     # Include linear settings if applicable
     if 'LinearAssembler' in flow:
         settings['SaveData']['save_linear'] = True
-        settings['SaveData']['save_linear_uvlm'] = True
+        # settings['SaveData']['save_linear_uvlm'] = True
         unsteady_force_distribution = False
     else:
         unsteady_force_distribution = True
@@ -347,10 +347,6 @@ def get_settings(flexop_model, flow, dt, **kwargs):
             settings['SaveData']['save_rom'] = True
             settings['LinearAssembler']['linear_system_settings']['aero_settings']['rom_method'] = rom_settings['rom_method']
             settings['LinearAssembler']['linear_system_settings']['aero_settings']['rom_method_settings'] = rom_settings['rom_method_settings']
-
-    # Adjust rigid body modes for free flight
-    if not free_flight:
-        settings['Modal']['rigid_body_modes'] = False
 
     # Update settings for polar corrections if required
     if use_polars:
