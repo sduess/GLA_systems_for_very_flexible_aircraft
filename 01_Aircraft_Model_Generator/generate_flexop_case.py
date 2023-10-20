@@ -10,6 +10,7 @@ def generate_flexop_case(u_inf,
                         initial_trim_values,
                         case_name,
                         cases_route = '../../cases/',
+                        rom_settings={'use': False},
                         **kwargs):
     """
     Generate and configure a FLEXOP aircraft model for a simulation case.
@@ -127,7 +128,8 @@ def generate_flexop_case(u_inf,
                             num_modes=kwargs.get('num_modes',20),
                             postprocessors_dynamic=kwargs.get('postprocessors_dynamic', ['BeamLoads', 'SaveData']),
                             n_load_steps=kwargs.get('n_load_steps', 5),
-                            nonlifting_body_interactions=nonlifting_body_interactions
+                            nonlifting_body_interactions=nonlifting_body_interactions,
+                            rom_settings=rom_settings
                             )
 
     flexop_model.create_settings(settings)

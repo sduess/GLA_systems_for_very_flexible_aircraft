@@ -119,6 +119,7 @@ flexop_model = generate_flexop_case(
                         initial_trim_values,
                         case_name,
                         cases_route=cases_route,
+                        rom_settings=rom_settings,
                         **simulation_settings
                         )
 
