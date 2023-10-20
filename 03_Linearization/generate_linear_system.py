@@ -100,7 +100,7 @@ else:
 # ROM settings
 rom_settings = {
     'use': simulation_settings['use_rom'],
-    'rom_method': 'Krylov',
+    'rom_method': ['Krylov'],
     'rom_method_settings': {'Krylov': {
                                         'algorithm': 'mimo_rational_arnoldi',
                                         'r': 4, 
