@@ -13,12 +13,8 @@ function state_space_parameter = adjust_state_space_system(state_space_system, i
 orig_size_A = size(state_space_system.A,1);
 if input_settings.rbm && input_settings.rom_order > 0
     drop_begin = orig_size_A- 2 * input_settings.num_modes + 1; 
-    drop_end = drop_begin+8;
-
-    state_space_system.A(:,drop_begin:drop_end) =  [];
-    state_space_system.A(drop_begin:drop_end,:) =  [];
-    state_space_system.B(drop_begin:drop_end,:) = [];
-    state_space_system.C(:,drop_begin:drop_end) =  [];
+    list_idx_state_removed = drop_begin:drop_begin+8;
+    state_space_system = remove_state_from_state_space_model(state_space_system, list_idx_state_removed);
 end
 
 
@@ -42,7 +38,7 @@ state_space_parameter.A = A;
 
 %Delete delta input and add delta_dot influence on delta 
 state_space_parameter.B_cs(:,1:input_settings.num_control_surfaces) = [];
-state_space_parameter.state_space_parameter.B_cs = [state_space_parameter.B_cs; eye(input_settings.num_control_surfaces) * state_space_system.Ts]; 
+state_space_parameter.B_cs = [state_space_parameter.B_cs; eye(input_settings.num_control_surfaces) * state_space_system.Ts]; 
 
 % Adding feed through of the delta-input on the output on C as a new column
 % and deleting column added in C out of D; 
