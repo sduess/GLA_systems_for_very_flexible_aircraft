@@ -1,6 +1,6 @@
 function setup_LQG_controller(route_directory, case_name)
 
-addpath(strcat(route_directory,'/matlab_functions/'));
+addpath(strcat(route_directory,'/../05_Utils/matlab_functions/'));
 %% Load state space information and input_settings
 load(strcat(route_directory, '/../03_Linearization/linear_statespace_files_matlab/', case_name, '.mat'));
 

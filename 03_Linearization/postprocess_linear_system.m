@@ -1,6 +1,6 @@
 function postprocess_linear_system(route_directory, case_name, SHARPy_output_folder)
 
-    addpath(strcat(route_directory,'/matlab_functions/'));
+    addpath(strcat(route_directory,'/../05_Utils/matlab_functions/'));
     %% Reade from SHARPy generated state space model
     filepath_to_SHARPy_linear_system_file = strcat(SHARPy_output_folder,case_name, '/savedata/',case_name, '.linss.h5');
     [state_space_system, eta_ref] = read_SHARPy_state_space_system(filepath_to_SHARPy_linear_system_file);
