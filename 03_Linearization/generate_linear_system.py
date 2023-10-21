@@ -48,10 +48,11 @@ simulation_settings = {
     'mstar': 80,  # Number of streamwise wake panels
     'num_chord_panels': 8,  # Chordwise lattice discretization
     'n_elem_multiplier': 2,  # Multiplier for spanwise node discretization
+    'n_elem_multiplier_fuselage': 1,  # Multiplier for longitudinal fuselage node discretization
     'n_tstep': 1,  # Number of simulation time steps
     'num_cores': 4,  # Number of CPU cores used for parallelization
     'sigma': 0.3,  # Stiffness scaling factor (1 for FLEXOP, 0.3 for SuperFLEXOP)
-    'postprocessors_dynamic': ['BeamLoads', 'SaveData', 'BeamPlot', 'AerogridPlot'],
+    'postprocessors_dynamic': [],
 }
 
 # Define case name
