@@ -69,13 +69,16 @@ sys_LQR = ss(sys_final.A, sys_final.B(:,1:end-(num_thrust_inputs)), sys_final.C,
 if input_settings.rbm
     % TODO: add penalized rbm modes
     penalized_modes = [1];
+
+    penalized_modes_rbm = [8]; % just pitch for now?
 else
     % Symmetrical modes
     penalized_modes = [1, 2];
+    penalized_modes_rbm = [];
 end
 % controller_final = 1;
 controller_final = setup_controller_struct(sys_LQR, size(sys_LQR.B,2)-1, ...
-    num_aero_states, num_modes,num_rbm, penalized_modes, ...
+    num_aero_states, num_modes,num_rbm, penalized_modes, penalized_modes_rbm,...
     5000., ...
     1);
 

@@ -11,8 +11,8 @@ function simulation_output = run_linear_open_loop_response(linear_sys, ...
     simIn = setVariable(simIn,'gust', gust_time_series);
 
     % Control surface input mapping
-    num_cs_inputs = size(linear_sys, 2)-1;
-    if num_cs_inputs > 2
+    num_cs_inputs = size(linear_sys.B, 2)-1;
+    if num_cs_inputs >= 2
         control_surface_mapping = [ones(1, num_cs_inputs/2) -ones(1, num_cs_inputs/2)];
     else
         control_surface_mapping = 1;
