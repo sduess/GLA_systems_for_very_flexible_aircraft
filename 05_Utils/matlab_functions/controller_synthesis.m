@@ -1,4 +1,4 @@
-function [sys_kf,sys_LQR, sys_final, controller_final] = controller_synthesis(input_settings,state_space_system_parameter)
+function [sys_kf,sys_LQR, sys_final, controller_final] = controller_synthesis(input_settings,state_space_system_parameter, use_elevator)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -22,42 +22,52 @@ function [sys_kf,sys_LQR, sys_final, controller_final] = controller_synthesis(in
 
    
 %% Remove aileron inputs (except for outboard one)
-if ~input_settings.rbm
-    sys_reduced = remove_inputs_from_state_space_model(sys, [5,6, 11,12], true);
-else
-    % TODO include elevator in GLA controller
-    sys_reduced = remove_inputs_from_state_space_model(sys, [5,6, 11,12], true);
+if ~use_elevator
+    sys = remove_inputs_from_state_space_model(sys, [5,6, 11,12], true);
 end
 %% reduce cs inputs by assuming symmetry
 num_ailerons = 8;
 num_elevators = 0;
-% if input_settings.rbm
-%     num_elevators = 4;
-% end
+if use_elevator
+    num_elevators = 4;
+end
 num_control_surfaces = num_ailerons + num_elevators;
 num_aero_states = input_settings.num_aero_states;
 num_modes = input_settings.num_modes;
 num_ignored_last_columns = 1 + num_thrust_inputs; % Gust (1) + thrust inputs
 num_rbm = int8(input_settings.rbm)*9;
-sys_symmetric_inputs = make_control_inputs_symmetric(sys_reduced, num_control_surfaces/2, num_ignored_last_columns);
+
+sys_symmetric_inputs = make_control_inputs_symmetric(sys, num_control_surfaces/2, num_ignored_last_columns);
 
 %% Reduce cs inputs by assuming same deflection/join ailerons to one
-num_cs = num_control_surfaces / 2;
-if input_settings.rbm
-    % TODO: join ailerons and elevators separataley for free-flying
-    % sys_final = sys_symmetric_inputs;
+% TODO: design controller with actuation all control surfaces individually
 
-    sys_final = join_control_surfaces(sys_symmetric_inputs, num_cs, num_ignored_last_columns);
-    num_cs = 1;
-else
-    sys_final = join_control_surfaces(sys_symmetric_inputs, num_cs, num_ignored_last_columns);
-    num_cs = 1;
+num_cs = num_control_surfaces / 2;
+% Join ailerons
+num_ailerons_symmetric = num_ailerons/2;
+idx_ailerons = 1:num_ailerons_symmetric;
+sys_final = join_control_surfaces(sys_symmetric_inputs, ...
+    num_cs, idx_ailerons);
+% Update num of control surfaces after system has been reduced
+num_cs = num_cs - num_ailerons_symmetric + 1;
+if use_elevator
+    % Join elevators
+    num_elevators_symmetric = num_elevators/2;
+    idx_elevators = 2:num_elevators_symmetric+1;
+    sys_final = join_control_surfaces(sys_final, ...
+        num_cs, idx_elevators);
+    num_cs = 2;
+% else
+% 
+%     sys_final = join_control_surfaces(sys_symmetric_inputs, num_cs, idx_ailerons);
+%     num_cs = 1;
 end
 
 %% Design LQR controller
 
 sys_LQR = ss(sys_final.A, sys_final.B(:,1:end-(num_thrust_inputs)), sys_final.C, sys_final.D(:,1:end-(num_thrust_inputs)), input_settings.dt);
 if input_settings.rbm
+    % TODO: add penalized rbm modes
     penalized_modes = [1];
 else
     % Symmetrical modes

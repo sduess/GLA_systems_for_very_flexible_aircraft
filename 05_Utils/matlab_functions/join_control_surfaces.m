@@ -1,30 +1,36 @@
-function sys_symmetric_inputs = join_control_surfaces(sys, num_symmetric_cs, num_ignored_last_columns)
+function sys_symmetric_inputs = join_control_surfaces(sys, num_cs_total, indices_of_cs_to_join)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
+num_cs_to_join = length(indices_of_cs_to_join);
+% Get matrices as they cannot be adjusted while being assigned to a state
+% space system.
 A = sys.A;
 B = sys.B;
 C = sys.C;
 D = sys.D;
-% Adjust A, B and D matrices
-delta_start = num_symmetric_cs-1;
-delta_dot_start = 1;
-for i_cs=1:num_symmetric_cs-1
 
-    A(:,end-delta_start) = A(:,end-delta_start)+ ...
-        A(:,end-delta_start+i_cs);
-    B(:,delta_dot_start) = B(:,delta_dot_start) + B(:, delta_dot_start +i_cs );
-    D(:,delta_dot_start) = D(:,delta_dot_start) + D(:,delta_dot_start + i_cs);
+% Get indices
+delta_vector_start = size(A,1) -(num_cs_total-1);
+idx_delta_start = delta_vector_start + (indices_of_cs_to_join(1) - 1);
+idx_delta_dot_start = indices_of_cs_to_join(1);
+% Adjust A, B and D matrices
+for i_cs=2:num_cs_to_join
+    
+    A(:,idx_delta_start) = A(:,idx_delta_start)+ ...
+        A(:,delta_vector_start+(indices_of_cs_to_join(i_cs) - 1));
+    B(:,idx_delta_dot_start) = B(:,idx_delta_dot_start) + B(:,indices_of_cs_to_join(i_cs));
+    D(:,idx_delta_dot_start) = D(:,idx_delta_dot_start) + D(:,indices_of_cs_to_join(i_cs));
 end
 
 % delete unused inputs in B, and D matrices 
-B(:,2:end-num_ignored_last_columns) = [];
-B(end-delta_start+1:end, :) = [];
-D(:,2:end-num_ignored_last_columns) = [];
+B(:,indices_of_cs_to_join(2:end)) = [];
+B(delta_vector_start+indices_of_cs_to_join(2:end)-1, :) = [];
+D(:,indices_of_cs_to_join(2:end)) = [];
 % 
 % % delete unused delta states from A  and C matrix
-A(:,end-delta_start+1:end) = [];
-A(end-delta_start+1:end, :) = [];
-C(:,end-delta_start+1:end) = [];
+A(:,delta_vector_start+indices_of_cs_to_join(2:end)-1) = [];
+A(delta_vector_start+indices_of_cs_to_join(2:end)-1, :) = [];
+C(:,delta_vector_start++indices_of_cs_to_join(2:end)-1) = [];
 
 sys_symmetric_inputs = ss(A, B, C, D, sys.Ts);
 end
