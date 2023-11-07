@@ -343,6 +343,7 @@ def get_settings(flexop_model, flow, dt, **kwargs):
                 },
                 'track_body': free_flight,
                 'use_euler': free_flight,
+                'recover_accelerations': kwargs.get('recover_accelerations', False),
             }
         }
 

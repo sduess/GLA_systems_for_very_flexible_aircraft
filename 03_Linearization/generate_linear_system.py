@@ -44,12 +44,13 @@ simulation_settings = {
     'restart_case': False,
     'restart_pickle_file': None,
     'remove_gust_input_in_statespace': False,
+    'recover_accelerations': True,
     'num_modes': 30,
     'mstar': 80,  # Number of streamwise wake panels
     'num_chord_panels': 8,  # Chordwise lattice discretization
     'n_elem_multiplier': 2,  # Multiplier for spanwise node discretization
     'n_elem_multiplier_fuselage': 1,  # Multiplier for longitudinal fuselage node discretization
-    'n_tstep': 1,  # Number of simulation time steps
+    'n_tstep': 500,  # Number of simulation time steps
     'num_cores': 4,  # Number of CPU cores used for parallelization
     'sigma': 0.3,  # Stiffness scaling factor (1 for FLEXOP, 0.3 for SuperFLEXOP)
     'postprocessors_dynamic': [],
@@ -66,6 +67,10 @@ else:
     rbm_conditions = 'clamped'
 case_name = case_name_string_format.format(model_output, rbm_conditions)
 
+if simulation_settings['wing_only']:
+    case_name += '_wing_only'
+if simulation_settings['recover_accelerations']:
+    case_name += '_acc'
 # Initial trim values
 initial_trim_values = {
     'alpha': alpha_rad,
