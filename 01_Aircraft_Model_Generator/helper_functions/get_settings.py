@@ -226,11 +226,21 @@ def get_settings(flexop_model, flow, dt, **kwargs):
             'relative_motion': bool(not free_flight),
             'offset': gust_settings['gust_offset'],
             'gust_shape': gust_settings['gust_shape'],
-            'gust_parameters': {
+        }
+        
+        if gust_settings['gust_shape'] == 'time varying':
+            # continuous gust
+            settings['StepUvlm']['velocity_field_input']['gust_parameters'] = {
+                'file': gust_settings['file'],
+                'gust_component': gust_settings['gust_component'],
+            }   
+        else:
+            # discrete gust
+            settings['StepUvlm']['velocity_field_input']['gust_parameters'] = {
                 'gust_length': gust_settings['gust_length'],
                 'gust_intensity': gust_settings['gust_intensity'] * u_inf,
-            }
-        }
+                'gust_component': gust_settings['gust_component'],
+            }  
 
     # Determine structural solver based on free_flight
     if free_flight:
