@@ -1,4 +1,4 @@
-function [sys_kf,sys_LQR, sys_final, controller_final] = controller_synthesis(input_settings,state_space_system_parameter, use_elevator)
+function [sys_kf,sys_LQR, sys_final, controller_final] = controller_synthesis(input_settings,state_space_system_parameter, use_elevator,LQR_tuning)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -66,21 +66,13 @@ end
 %% Design LQR controller
 
 sys_LQR = ss(sys_final.A, sys_final.B(:,1:end-(num_thrust_inputs)), sys_final.C, sys_final.D(:,1:end-(num_thrust_inputs)), input_settings.dt);
-if input_settings.rbm
-    % TODO: add penalized rbm modes
-    penalized_modes = [1];
-
-    penalized_modes_rbm = [8]; % just pitch for now?
-else
-    % Symmetrical modes
-    penalized_modes = [1, 2];
-    penalized_modes_rbm = [];
-end
 % controller_final = 1;
-controller_final = setup_controller_struct(sys_LQR, size(sys_LQR.B,2)-1, ...
-    num_aero_states, num_modes,num_rbm, penalized_modes, penalized_modes_rbm,...
-    5000., ...
-    1);
+controller_final = setup_controller_struct(sys_LQR, ...
+    LQR_tuning, ...
+    size(sys_LQR.B,2)-num_ignored_last_columns, ...
+    num_aero_states, ...
+    num_modes,...
+    num_rbm);
 
 %% Design LQG controller
 % TODO: Thrust

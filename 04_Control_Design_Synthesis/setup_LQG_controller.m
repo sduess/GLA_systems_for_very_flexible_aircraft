@@ -1,4 +1,4 @@
-function setup_LQG_controller(route_directory, case_name, use_elevator)
+function setup_LQG_controller(route_directory, case_name, use_elevator, LQR_tuning, design_name)
 
 addpath(strcat(route_directory,'/../05_Utils/matlab_functions/'));
 %% Load state space information and input_settings
@@ -12,12 +12,13 @@ load(strcat(route_directory, '/../03_Linearization/linear_statespace_files_matla
 
 %% Get LQR Controller
 % Remove unused 
-[sys_kf, sys_LQR,sys_final, controller_final] = controller_synthesis(input_settings,state_space_system, use_elevator);
+[sys_kf, sys_LQR,sys_final, controller_final] = controller_synthesis(input_settings,state_space_system, use_elevator, LQR_tuning);
 
 %% Save controller parameters
 if use_elevator
     case_name= strcat(case_name,  '_elev_on');
 end
+case_name = strcat(case_name, design_name);
 save(strcat(route_directory,'/controller_files_matlab/',case_name), ...
     'sys_kf', ...
     'sys_LQR', ...
