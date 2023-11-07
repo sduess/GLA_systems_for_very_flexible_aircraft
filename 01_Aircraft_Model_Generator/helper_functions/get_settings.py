@@ -313,6 +313,7 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'continuous_eigenvalues': 'off',
         'dt': dt,
         'plot_eigenvalues': False,
+        # 'rigid_modes_ppal_axes': True,
     }
 
     # Include LinearAssembler settings if applicable
@@ -320,6 +321,7 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         settings['LinearAssembler'] = {
             'linear_system': 'LinearAeroelastic',
             'inout_coordinates': 'nodes',
+            'recover_accelerations': kwargs.get('recover_accelerations', False),
             'linear_system_settings': {
                 'beam_settings': {
                     'modal_projection': True,
@@ -343,7 +345,6 @@ def get_settings(flexop_model, flow, dt, **kwargs):
                 },
                 'track_body': free_flight,
                 'use_euler': free_flight,
-                'recover_accelerations': kwargs.get('recover_accelerations', False),
             }
         }
 
