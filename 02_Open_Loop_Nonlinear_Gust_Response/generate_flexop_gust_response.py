@@ -40,6 +40,7 @@ simulation_settings = {
     'gust_input_file': os.path.join(file_dir, '../05_Utils/gust_inputs/turbulence_time_600s_uinf_45_altitude_800_moderate_noise_seeds_12782_12783_12784_12785_1.txt'),
     'lateral_gust': False,  # 
     '3D_velocity_component': False,
+    'gust_offset': 500,
     # Discretisation
     'mstar': 80,  # Number of streamwise wake panels
     'num_chord_panels': 8,  # Chordwise lattice discretization
@@ -69,6 +70,11 @@ if simulation_settings["use_gust"]:
             'gust_offset': 10,
             'gust_component': [2], # list of velocity components considered (0: U_x, 1: U_y, 2: U_z)   
         }
+        if simulation_settings['lateral_gust']:
+            gust_settings['gust_component']= [1]
+        elif simulation_settings['3D_velocity_component']:
+            gust_settings['gust_component']= [0, 1, 2]
+
         if simulation_settings['gust_input_file'] is None or \
             not os.path.exists(simulation_settings['gust_input_file']):
             raise "Please specify a valid gust input file!"
@@ -79,12 +85,10 @@ if simulation_settings["use_gust"]:
             'gust_length': 10.0,  # Gust length in seconds
             'gust_intensity': 0.1,  # Gust intensity
             'gust_offset': 10,
-            'gust_component': [2],
+            'gust_component': 2,
         }
-    if simulation_settings["lateral_gust"]:
-        gust_settings['gust_component']= [1]
-    elif simulation_settings["3D_velocity_component"]:
-        gust_settings['gust_component']= [0, 1, 2]
+        if simulation_settings["lateral_gust"]:
+            gust_settings['gust_component']= 1
 
 else:
     gust_settings = {'use_gust':False}
@@ -122,11 +126,11 @@ list_gust_lengths = [10]  # List of gust lengths to simulate
 for gust_length in list_gust_lengths:
     gust_settings['gust_length'] = gust_length
 
-    str_vel_components = ''
-    for component in gust_settings['gust_component']:
-        str_vel_components += str(component)
     # Generate a case name based on simulation settings
     if simulation_settings["continuous_gust"]:
+        str_vel_components = ''
+        for component in gust_settings['gust_component']:
+            str_vel_components += str(component)
         case_name = 'superflexop_free_gust_continuous_comp{}_p_{}_f_{}_cfl_{}_uinf{}'.format(
             str_vel_components,
             int(simulation_settings['use_polars']),
@@ -136,7 +140,7 @@ for gust_length in list_gust_lengths:
         )
     else:        
         case_name = 'superflexop_free_gust_comp{}_L_{}_I_{}_p_{}_f_{}_cfl_{}_uinf{}'.format(
-            str_vel_components,
+            gust_settings['gust_component'],
             gust_settings['gust_length'],
             int(gust_settings['gust_intensity'] * 100),
             int(simulation_settings['use_polars']),
