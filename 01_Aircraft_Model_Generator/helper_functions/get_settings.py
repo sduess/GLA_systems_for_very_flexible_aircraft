@@ -117,9 +117,9 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'initial_thrust': thrust,
         'tail_cs_index': [4, 5, 10,11],
         'thrust_nodes': [0],
-        'fz_tolerance': 1e-6,
-        'fx_tolerance': 1e-6,
-        'm_tolerance': 1e-6,
+        'fz_tolerance': 1e-10,
+        'fx_tolerance': 1e-10,
+        'm_tolerance': 1e-10,
         'max_iter': 200,
         'save_info': True
     }
