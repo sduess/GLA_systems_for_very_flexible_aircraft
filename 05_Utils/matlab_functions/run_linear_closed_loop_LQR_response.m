@@ -2,7 +2,7 @@ function simulation_output = run_linear_closed_loop_LQR_response(linear_sys, ...
     input_settings, gust_time_series, LQR_gain,simulink_file_directory)
     %% Configure Simulink Inputs
     addpath(simulink_file_directory);
-    model_name  = "LQR_test";
+    model_name  = "LQR";
     simIn = Simulink.SimulationInput(model_name);
     simIn = setVariable(simIn,'linear_sys',linear_sys);
     simIn = setVariable(simIn,'input_settings',input_settings);

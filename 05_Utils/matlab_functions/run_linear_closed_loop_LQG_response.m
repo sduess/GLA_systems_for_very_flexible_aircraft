@@ -5,7 +5,7 @@ function simulation_output = run_linear_closed_loop_LQG_response(linear_sys, ...
     
     %% Configure Simulink Inputs
     addpath(simulink_file_directory);
-    model_name  = "LQG_test";
+    model_name  = "LQG";
     simIn = Simulink.SimulationInput(model_name);
     simIn = setVariable(simIn,'linear_sys',linear_sys);
     simIn = setVariable(simIn,'sys_kf',sys_kf);
