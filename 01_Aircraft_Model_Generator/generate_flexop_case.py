@@ -78,7 +78,8 @@ def generate_flexop_case(u_inf,
                                 wing_only = kwargs.get('wing_only', False))
     flexop_model.init_aero(m=kwargs.get('num_chord_panels', 8),
                            cs_deflection = cs_deflection,
-                           polars = data_polars) 
+                           polars = data_polars,
+                           ailerons_type= kwargs.get("ailerons_type", 0))
     nonlifting_body_interactions = kwargs.get("nonlifting_interactions", False)
     if nonlifting_body_interactions:
         flexop_model.init_fuselage(m=kwargs.get('num_radial_panels', 24))
@@ -130,7 +131,10 @@ def generate_flexop_case(u_inf,
                             postprocessors_dynamic=kwargs.get('postprocessors_dynamic', ['BeamLoads', 'SaveData']),
                             n_load_steps=kwargs.get('n_load_steps', 5),
                             nonlifting_body_interactions=nonlifting_body_interactions,
-                            rom_settings=rom_settings
+                            rom_settings=rom_settings,
+                            dynamic_trim = kwargs.get('dynamic_trim', False),
+                            dynamic_cs_input=kwargs.get('dynamic_cs_input', False),
+                            dict_predefined_cs_input_files=kwargs.get('dict_predefined_cs_input_files', {})
                             )
 
     flexop_model.create_settings(settings)

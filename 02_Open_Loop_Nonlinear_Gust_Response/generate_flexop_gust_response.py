@@ -46,9 +46,11 @@ simulation_settings = {
     'num_chord_panels': 8,  # Chordwise lattice discretization
     'n_elem_multiplier': 2,  # Multiplier for spanwise node discretization
     # Others
-    'n_tstep': 2000,  # Number of simulation time steps
+    'n_tstep': 2700,  # Number of simulation time steps
     'num_cores': 4,  # Number of CPU cores used for parallelization
     'sigma': 0.3,  # Stiffness scaling factor (1 for FLEXOP, 0.3 for SuperFLEXOP)
+    'dynamic_cs_input': True, # True if pre-defined control surface deflection used
+    'dynamic_cs_input_file': file_dir + '/predefined_cs_inputs/linear_LQG_L10_I10.txt', # File containing the pre-defined control surface deflection inputs
     'postprocessors_dynamic': ['BeamLoads', 'SaveData', 'BeamPlot', 'AerogridPlot'],
 }
 
@@ -92,6 +94,29 @@ if simulation_settings["use_gust"]:
 
 else:
     gust_settings = {'use_gust':False}
+
+# Set pre-defined control surface inputs 
+if simulation_settings["dynamic_cs_input"]:
+    route_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+
+    dict_predefined_cs_input_files = {
+        '0' : simulation_settings["dynamic_cs_input_file"], # aileron 1 (inboard right)
+        '1' : simulation_settings["dynamic_cs_input_file"], # aileron 2
+        '2' : simulation_settings["dynamic_cs_input_file"], # aileron 3
+        '3' : simulation_settings["dynamic_cs_input_file"],# aileron 4 (outboard right)
+        '4' : None, # elevator 1 (inboard right)
+        '5' : None, # elevator 2 (outboard right)
+        '6' : simulation_settings["dynamic_cs_input_file"], # aileron 5 (inboard left)
+        '7' : simulation_settings["dynamic_cs_input_file"], # aileron 6
+        '8' : simulation_settings["dynamic_cs_input_file"], # aileron 7
+        '9' :  simulation_settings["dynamic_cs_input_file"], # aileron 8 (outboard left)
+        '10' : None, # elevator 3 (inboard left)
+        '11' : None, # elevator 4 (outboard left))
+    }
+    ailerons_type = 1
+else:
+    ailerons_type = 0
+    dict_predefined_cs_input_files = {}
 
 # Set wake shape inputs if needed for variable wake discretization
 if simulation_settings['wake_discretisation']:
@@ -163,6 +188,9 @@ for gust_length in list_gust_lengths:
         gust_settings=gust_settings,
         dict_wake_shape=dict_wake_shape,
         **simulation_settings,
+        ailerons_type=ailerons_type,
+        dict_predefined_cs_input_files=dict_predefined_cs_input_files,
         nonlifting_interactions=bool(not simulation_settings["lifting_only"])
     )
+
     flexop_model.run()
