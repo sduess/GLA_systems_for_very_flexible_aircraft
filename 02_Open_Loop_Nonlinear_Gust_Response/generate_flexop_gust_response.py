@@ -138,12 +138,17 @@ flow = [
     # 'AerogridPlot',
     'BeamPlot',
     'StaticCoupled',
+    'StaticTrim',
     'DynamicCoupled',
 ]
 
 # Remove certain steps based on simulation settings
 if simulation_settings['lifting_only']:
     flow.remove('NonliftingbodygridLoader')
+if simulation_settings['use_trim']:
+    flow.remove('StaticCoupled')
+else:
+    flow.remove('StaticTrim')
 
 # Loop over various gust lengths
 list_gust_lengths = [10]  # List of gust lengths to simulate
