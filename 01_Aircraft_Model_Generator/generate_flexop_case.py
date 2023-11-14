@@ -134,7 +134,8 @@ def generate_flexop_case(u_inf,
                             rom_settings=rom_settings,
                             dynamic_trim = kwargs.get('dynamic_trim', False),
                             dynamic_cs_input=kwargs.get('dynamic_cs_input', False),
-                            dict_predefined_cs_input_files=kwargs.get('dict_predefined_cs_input_files', {})
+                            dict_predefined_cs_input_files=kwargs.get('dict_predefined_cs_input_files', {}),
+                            restart_case=kwargs.get('restart_case', False)
                             )
 
     flexop_model.create_settings(settings)

@@ -52,15 +52,18 @@ simulation_settings = {
     'dynamic_cs_input': True, # True if pre-defined control surface deflection used
     'dynamic_cs_input_file': file_dir + '/predefined_cs_inputs/linear_LQG_L10_I10.txt', # File containing the pre-defined control surface deflection inputs
     'postprocessors_dynamic': ['BeamLoads', 'SaveData', 'BeamPlot', 'AerogridPlot'],
+    # Restart/ Pickle options
+    'restart_case': True,
+    'restart_pickle_file': file_dir + '/../lib/sharpy/output/superflexop_free_gust_comp2_L_10_I_10_p_0_f_0_cfl_1_uinf45//superflexop_free_gust_comp2_L_10_I_10_p_0_f_0_cfl_1_uinf45.pkl',# None,
+    'save_pickle_file': True,
 }
 
-# Initial trim values
+# Set initial aircraft trim values
 initial_trim_values = {
     'alpha': alpha_rad,
     'delta': -3.325087601649625961e-03,
     'thrust': 2.052055145318664842e+00
 }
-
 
 # Set Gust settings
 if simulation_settings["use_gust"]:
@@ -131,24 +134,29 @@ else:
     dict_wake_shape = None
 
 # Define the flow sequence
-flow = [
-    'BeamLoader',
-    'AerogridLoader',
-    'NonliftingbodygridLoader',
-    # 'AerogridPlot',
-    'BeamPlot',
-    'StaticCoupled',
-    'StaticTrim',
-    'DynamicCoupled',
-]
+if not simulation_settings['restart_case']:
+    flow = [
+        'BeamLoader',
+        'AerogridLoader',
+        'NonliftingbodygridLoader',
+        # 'AerogridPlot',
+        'BeamPlot',
+        'StaticCoupled',
+        'StaticTrim',
+        'DynamicCoupled',
+    ]
 
-# Remove certain steps based on simulation settings
-if simulation_settings['lifting_only']:
-    flow.remove('NonliftingbodygridLoader')
-if simulation_settings['use_trim']:
-    flow.remove('StaticCoupled')
+    # Remove certain steps based on simulation settings
+    if simulation_settings['lifting_only']:
+        flow.remove('NonliftingbodygridLoader')
+    if simulation_settings['use_trim']:
+        flow.remove('StaticCoupled')
+    else:
+        flow.remove('StaticTrim')
 else:
-    flow.remove('StaticTrim')
+    flow = ['DynamicCoupled']
+if simulation_settings['save_pickle_file']:
+    flow.append('PickleData')
 
 # Loop over various gust lengths
 list_gust_lengths = [10]  # List of gust lengths to simulate
@@ -183,6 +191,8 @@ for gust_length in list_gust_lengths:
     if not simulation_settings["lifting_only"]:
         case_name += '_nonlifting'
     
+    if not simulation_settings['restart_case']:
+        case_name += '_restart'
     # Generate the FlexOP model and start the simulation
     flexop_model = generate_flexop_case(
         u_inf,
@@ -190,6 +200,7 @@ for gust_length in list_gust_lengths:
         flow,
         initial_trim_values,
         case_name,
+        cases_route=cases_route,
         gust_settings=gust_settings,
         dict_wake_shape=dict_wake_shape,
         **simulation_settings,
@@ -198,4 +209,15 @@ for gust_length in list_gust_lengths:
         nonlifting_interactions=bool(not simulation_settings["lifting_only"])
     )
 
-    flexop_model.run()
+    # Start simulation
+    if not simulation_settings['restart_case']:
+        flexop_model.run()
+    else:
+        assert simulation_settings['restart_pickle_file'] is not None, "Define a pickle file to restart from"
+        
+        sys.path.insert(1,'../../05_Utils')
+        import restart_simulation_from_pickle as restart 
+        restart.restart_simulation_from_pickle(cases_route, 
+                                            case_name,
+                                            simulation_settings['restart_pickle_file'])
+

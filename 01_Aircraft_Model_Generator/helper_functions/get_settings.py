@@ -292,7 +292,12 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'postprocessors_settings': dict(),
         'nonlifting_body_interactions': kwargs.get("nonlifting_body_interactions", False),
     }
-
+    
+    # Adjust DynamicCoupled for restart case
+    if kwargs.get('restart_case', False):
+        settings['DynamicCoupled']['relaxation_factor'] = 0.
+        settings['DynamicCoupled']['final_relaxation_factor'] = 0.
+    settings['PickleData'] = {}
     # WriteVariablesTime Settings
     settings['WriteVariablesTime'] = {
         'structure_variables': ['pos'],
