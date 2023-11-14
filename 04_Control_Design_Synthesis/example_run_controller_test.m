@@ -3,9 +3,12 @@ clear all
 
 route_directory = '/home/sduess/Documents/SHARPY_simulations/GLA_systems_for_very_flexible_aircraft/04_Control_Design_Synthesis/';
 case_name ='superflexop_cruise_linear_ROM_free_flight';
-load(strcat('./controller_files_matlab/', case_name, '.mat'));
 simulink_file_directory = '/home/sduess/Documents/SHARPY_simulations/GLA_systems_for_very_flexible_aircraft/05_Utils/simulink_files/'%strcat(route_directory, '/../05_Utils/simulink_files/');
+design_name =  '_acc1_onlyz1_onlypos1'
+case_name = strcat(case_name,design_name) ; 
 
+%% Load Data
+load(strcat('./controller_files_matlab/', case_name, '.mat'));
 %% Define Simulation, Controller, and Gust Parameter
 input_settings.flight_time= 3;
 gust_lengths = [5, 10, 20, 40, 80];
