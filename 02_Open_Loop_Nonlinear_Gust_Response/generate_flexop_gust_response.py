@@ -14,11 +14,13 @@ Usage:
 import sys, os
 sys.path.insert(1,'../../01_Aircraft_Model_Generator')
 from generate_flexop_case import generate_flexop_case
+
+# Define folder
 file_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+cases_route = '../../cases/'
 
 
 # Define simulation parameters
-
 u_inf = 45  # Cruise flight speed in m/s
 rho = 1.1336  # Air density in kg/m^3 (corresponding to an altitude of 800m)
 alpha_rad = 6.406771329255241468e-03  # Angle of attack in radians (approximately 0.389 degrees)
