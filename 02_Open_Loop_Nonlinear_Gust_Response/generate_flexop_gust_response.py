@@ -51,7 +51,7 @@ simulation_settings = {
     'n_tstep': 2700,  # Number of simulation time steps
     'num_cores': 4,  # Number of CPU cores used for parallelization
     'sigma': 0.3,  # Stiffness scaling factor (1 for FLEXOP, 0.3 for SuperFLEXOP)
-    'dynamic_cs_input': True, # True if pre-defined control surface deflection used
+    'dynamic_cs_input': False, # True if pre-defined control surface deflection used
     'dynamic_cs_input_file': file_dir + '/predefined_cs_inputs/linear_LQG_L10_I10.txt', # File containing the pre-defined control surface deflection inputs
     'postprocessors_dynamic': ['BeamLoads', 'SaveData', 'BeamPlot', 'AerogridPlot'],
     # Restart/ Pickle options
