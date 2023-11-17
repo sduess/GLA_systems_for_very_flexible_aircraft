@@ -374,7 +374,15 @@ def get_settings(flexop_model, flow, dt, **kwargs):
             settings['SaveData']['save_rom'] = True
             settings['LinearAssembler']['linear_system_settings']['aero_settings']['rom_method'] = rom_settings['rom_method']
             settings['LinearAssembler']['linear_system_settings']['aero_settings']['rom_method_settings'] = rom_settings['rom_method_settings']
-
+        # Scale system if asymptotic stability solver is used
+        if 'AsymptoticStability' in flow:
+            settings['LinearAssembler']['linear_system_settings']['aero_settings']['ScalingDict'] =  {
+                'length': flexop_model.aero.chord_main_root/2,
+                'speed': u_inf,
+                'density': rho
+                }
+            
+            settings['LinearAssembler']['linear_system_settings']['aero_settings']['remove_inputs'] = ['u_gust']
     # Update settings for polar corrections if required
     if use_polars:
         settings = update_settings_for_polar_corrections(settings)
@@ -385,7 +393,7 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'frequency_cutoff': 0,
         'export_eigenvalues': 'on',
         'modes_to_plot': num_modes,
-        'velocity_analysis': [20, 80, 13]
+        'velocity_analysis': [30, 60, 7]
     }
 
     # LiftDistribution Settings
