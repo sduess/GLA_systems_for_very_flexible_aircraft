@@ -91,7 +91,7 @@ if simulation_settings["use_gust"]:
             'gust_shape': '1-cos',  # Gust shape function
             'gust_length': 10.0,  # Gust length in seconds
             'gust_intensity': 0.1,  # Gust intensity
-            'gust_offset': 10,
+            'gust_offset': simulation_settings['gust_offset']*0.471/simulation_settings['num_chord_panels'],
             'gust_component': 2,
         }
         if simulation_settings["lateral_gust"]:
