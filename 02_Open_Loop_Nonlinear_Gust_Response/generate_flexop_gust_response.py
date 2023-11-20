@@ -192,8 +192,9 @@ for gust_length in list_gust_lengths:
     # Include 'nonlifting' in the case name if nonlifting bodies are considered
     if simulation_settings["wing_only"]:
         case_name += '_wing_only'
-    
-    if not simulation_settings['restart_case']:
+    if simulation_settings["dynamic_cs_input"]:
+        case_name += '_dynamic_cs_input'
+    if simulation_settings['restart_case']:
         case_name += '_restart'
     # Generate the FlexOP model and start the simulation
     flexop_model = generate_flexop_case(
