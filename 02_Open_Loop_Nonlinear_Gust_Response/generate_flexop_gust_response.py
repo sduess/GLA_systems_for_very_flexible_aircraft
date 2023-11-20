@@ -55,9 +55,9 @@ simulation_settings = {
     'dynamic_cs_input_file': file_dir + '/predefined_cs_inputs/linear_LQG_L10_I10.txt', # File containing the pre-defined control surface deflection inputs
     'postprocessors_dynamic': ['BeamLoads', 'SaveData', 'BeamPlot', 'AerogridPlot'],
     # Restart/ Pickle options
-    'restart_case': True,
+    'restart_case': False,
     'restart_pickle_file': file_dir + '/../lib/sharpy/output/superflexop_free_gust_comp2_L_10_I_10_p_0_f_0_cfl_1_uinf45//superflexop_free_gust_comp2_L_10_I_10_p_0_f_0_cfl_1_uinf45.pkl',# None,
-    'save_pickle_file': True,
+    'save_pickle_file': False,
 }
 
 # Set initial aircraft trim values
@@ -74,7 +74,7 @@ if simulation_settings["use_gust"]:
             'use_gust': True,  # Enable gust modeling
             'gust_shape': 'time varying',
             'file': simulation_settings['gust_input_file'], # File includes time series of gust velocities, i.e. 4 columns: time[s]  U_x U_y U_z
-            'gust_offset': 10,
+            'gust_offset': simulation_settings['gust_offset']*0.471/simulation_settings['num_chord_panels'],
             'gust_component': [2], # list of velocity components considered (0: U_x, 1: U_y, 2: U_z)   
         }
         if simulation_settings['lateral_gust']:
@@ -190,8 +190,8 @@ for gust_length in list_gust_lengths:
         )
     
     # Include 'nonlifting' in the case name if nonlifting bodies are considered
-    if not simulation_settings["lifting_only"]:
-        case_name += '_nonlifting'
+    if simulation_settings["wing_only"]:
+        case_name += '_wing_only'
     
     if not simulation_settings['restart_case']:
         case_name += '_restart'
