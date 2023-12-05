@@ -13,7 +13,7 @@ indices.tip_displacement_in_y = [indices.tip_displacement_in_y ...
 indices.eta_tip = [indices.tip_displacement_in_y(1)-2:indices.tip_displacement_in_y(1)+3 ...
     indices.tip_displacement_in_y(2)-2:indices.tip_displacement_in_y(2)+3];
 % Eta dot tip
-indices.eta_dot_tip = indices.eta_tip + input_settings.n_nodes + 9 * input_settings.rbm;
+indices.eta_dot_tip = indices.eta_tip + input_settings.n_nodes * 6 + 9 * input_settings.rbm;
 
 if input_settings.rbm
     rbm_start = input_settings.n_nodes * 6 * 3 + 9 * 2 + 1;
