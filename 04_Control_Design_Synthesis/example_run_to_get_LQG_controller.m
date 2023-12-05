@@ -1,31 +1,51 @@
-clear all
+% clear all
 %% Define directories and parameters
 route_directory = '/home/sduess/Documents/SHARPY_simulations/GLA_systems_for_very_flexible_aircraft/04_Control_Design_Synthesis/';
-case_name ='superflexop_cruise_linear_ROM_free_flight'; %'superflexop_cruise_linear_ROM_clamped'; %
+case_name ='superflexop_cruise_linear_ROM_clamped_wing_only_acc_num_modes16'; %'superflexop_cruise_linear_ROM_clamped'; %
 
 %% Set penalties for LQR tuning
 input_LQR_tuning = struct();
 input_LQR_tuning.idx_penalized_aero_state = []; % [1];
 input_LQR_tuning.weights_for_penalized_aero_state =  []; %[0.1];
-input_LQR_tuning.idx_penalized_modal_displacement =[]; %[1];
-input_LQR_tuning.weights_for_penalized_modal_displacement = []; %[2];
-input_LQR_tuning.idx_penalized_modal_velocities = [1];
-input_LQR_tuning.weights_for_penalized_modal_velocities = [0.3];
-input_LQR_tuning.idx_penalized_rbm_modes = [3]; %[8];
-input_LQR_tuning.weights_for_penalized_rbm_modes = [1e-2]; %[2000];
-input_LQR_tuning.initial_diagonal_values = 2e-7;
+input_LQR_tuning.idx_penalized_modal_displacement =[1, 2]; %, 3, 4];
+input_LQR_tuning.weights_for_penalized_modal_displacement = [140, 140];%[400, 400]; %[80, 80]; %, 200, 200]; %[2];
+input_LQR_tuning.idx_penalized_modal_velocities =1:2; %[1,2 , 3, 4, 5,6, 7, 8];
+input_LQR_tuning.weights_for_penalized_modal_velocities =[0.0, 0.0] %c [1, 1, 2, 2, 20, 20,20, 20,200, 200]; %,20, 20];
+input_LQR_tuning.idx_penalized_rbm_modes = []; %[3]; %[8];
+input_LQR_tuning.weights_for_penalized_rbm_modes = []; %[1e-2]; %[2000];
+input_LQR_tuning.initial_diagonal_values = 0; %2e-7;
 input_LQR_tuning.weights_for_penalized_control_surfaces = 2e-4;
-input_LQR_tuning.R_values = diag([1 100]); %1;
+input_LQR_tuning.R_values = 1; %diag([1 100]); %1;
 
-design_name = '_with_elevator_vertical_vel'
-% design_name = strcat('_onlyq', num2str(input_LQR_tuning.weights_for_penalized_modal_displacement(1)))
+design_name = '';
 %% Create systems and control gains for LQG controller
-use_elevators=true;
+use_elevators=false;
+accelerator_sensors=false;
+sensors_only_z = true;
+only_pos = false;
+rotation_dot = false
+join_cs = true
+make_cs_symmetric = false % TODO: Implement
+modes_to_be_removed = [5 6 11 12]; 
+design_name = strcat(design_name, '_acc', num2str(accelerator_sensors), ...
+    '_onlyz', num2str(sensors_only_z),...
+    '_onlypos', num2str(only_pos),...
+    '_rotdot', num2str(rotation_dot), ...
+    '_joinedcs', num2str(join_cs),...
+    '_make_cs_symmetric', num2str(make_cs_symmetric), ...
+    '_woIP_wo5thBM');
 setup_LQG_controller(route_directory, ...
                      case_name, ...
                      use_elevators, ...
                      input_LQR_tuning, ...
-                     design_name);
+                     design_name, ...
+                     accelerator_sensors, ...
+                     sensors_only_z, ...
+                     only_pos, ...
+                     rotation_dot, ...
+                     join_cs, ...
+                     make_cs_symmetric, ...
+                     modes_to_be_removed);
 
 %% Test LQR controller on a discrete gust with H=10m and I=10%
 if use_elevators
