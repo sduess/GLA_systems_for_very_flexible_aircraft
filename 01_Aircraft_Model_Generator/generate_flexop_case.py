@@ -75,7 +75,8 @@ def generate_flexop_case(u_inf,
                                 n_elem_multiplier=kwargs.get('n_elem_multiplier', 2),
                                 n_elem_multiplier_fuselage = kwargs.get('n_elem_multiplier_fuselage',1), 
                                 lifting_only=kwargs.get('lifting_only', True),
-                                wing_only = kwargs.get('wing_only', False))
+                                wing_only = kwargs.get('wing_only', False),
+                                delta_x_payload = kwargs.get('delta_x_payload'))
     flexop_model.init_aero(m=kwargs.get('num_chord_panels', 8),
                            cs_deflection = cs_deflection,
                            polars = data_polars,

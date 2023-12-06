@@ -42,6 +42,7 @@ simulation_settings = {
     'n_tstep': 100,  # Number of simulation time steps
     'num_cores': 4,  # Number of CPU cores used for parallelization
     'sigma': 0.3,  # Stiffness scaling factor (1 for FLEXOP, 0.3 for SuperFLEXOP)
+    'delta_x_payload': 0.1, # Distance in x of payload from original position (+ towards nose, - towards tail)
 }
 
 # Set initial aircraft trim values
@@ -67,6 +68,9 @@ rom_settings = {
 # Define the flow sequence
 flow = ['BeamLoader',
         'AerogridLoader',
+        'Modal',
+        'StaticCoupled',
+        'Modal',
         'StaticTrim',
         'BeamPlot',
         'AerogridPlot',
@@ -76,14 +80,19 @@ flow = ['BeamLoader',
         'LinearAssembler',
         'AsymptoticStability',
         ]
+if simulation_settings['use_trim']:
+    flow.remove('StaticCoupled')
+else:
+    flow.remove('StaticTrim')
 
 # Generate a case name based on simulation settings
-
-# Include 'nonlifting' in the case name if nonlifting bodies are considered
 case_name = 'superflexop_asymptotic_stability_u_inf{}'.format(int(u_inf))
-if not simulation_settings["lifting_only"]:
-    case_name += '_nonlifting'
+if simulation_settings["wing_only"]:
+    case_name += 'wing_only'
 
+case_name += '_rbm{}'.format(int(simulation_settings["free_flight"]))
+if simulation_settings["delta_x_payload"] != 0:
+    case_name += '_dxp{}'.format(int(simulation_settings["delta_x_payload"]*1000))
 # Generate the FlexOP model and start the simulation
 flexop_model = generate_flexop_case(
     u_inf,
