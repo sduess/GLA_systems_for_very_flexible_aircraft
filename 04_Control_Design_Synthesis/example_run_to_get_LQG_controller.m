@@ -1,21 +1,26 @@
-% clear all
+%% Example run to get an LQG controller
+% Just an example how to get the LQG controller from the linear model
+% 'Post-phd steffi' didn't have time yet to clean the work from 'very-close to
+% phd deadline steffi' :) Sorry if the code is not that clean.
+
 %% Define directories and parameters
-route_directory = '/home/sduess/Documents/SHARPY_simulations/GLA_systems_for_very_flexible_aircraft/04_Control_Design_Synthesis/';
-case_name ='superflexop_cruise_linear_ROM_clamped_wing_only_acc_num_modes16'; %'superflexop_cruise_linear_ROM_clamped'; %
+% TODO: get rid of absolute path
+route_directory = 'C:\Users\User\Documents\GLA_systems_for_very_flexible_aircraft\04_Control_Design_Synthesis/';
+case_name ='superflexop_cruise_linear_FOM_clamped_IPdamped_wing_only_num_modes12';
 
 %% Set penalties for LQR tuning
 input_LQR_tuning = struct();
-input_LQR_tuning.idx_penalized_aero_state = []; % [1];
-input_LQR_tuning.weights_for_penalized_aero_state =  []; %[0.1];
-input_LQR_tuning.idx_penalized_modal_displacement =[1, 2]; %, 3, 4];
-input_LQR_tuning.weights_for_penalized_modal_displacement = [140, 140];%[400, 400]; %[80, 80]; %, 200, 200]; %[2];
-input_LQR_tuning.idx_penalized_modal_velocities =1:2; %[1,2 , 3, 4, 5,6, 7, 8];
-input_LQR_tuning.weights_for_penalized_modal_velocities =[0.0, 0.0] %c [1, 1, 2, 2, 20, 20,20, 20,200, 200]; %,20, 20];
-input_LQR_tuning.idx_penalized_rbm_modes = []; %[3]; %[8];
-input_LQR_tuning.weights_for_penalized_rbm_modes = []; %[1e-2]; %[2000];
-input_LQR_tuning.initial_diagonal_values = 0; %2e-7;
+input_LQR_tuning.idx_penalized_aero_state = []; 
+input_LQR_tuning.weights_for_penalized_aero_state =  []; 
+input_LQR_tuning.idx_penalized_modal_displacement =[1, 2]; 
+input_LQR_tuning.weights_for_penalized_modal_displacement = [140, 140];
+input_LQR_tuning.idx_penalized_modal_velocities =1:2; %
+input_LQR_tuning.weights_for_penalized_modal_velocities =[0.0, 0.0]
+input_LQR_tuning.idx_penalized_rbm_modes = []; 
+input_LQR_tuning.weights_for_penalized_rbm_modes = []; 
+input_LQR_tuning.initial_diagonal_values = 0; 
 input_LQR_tuning.weights_for_penalized_control_surfaces = 2e-4;
-input_LQR_tuning.R_values = 1; %diag([1 100]); %1;
+input_LQR_tuning.R_values = 1; 
 
 design_name = '';
 %% Create systems and control gains for LQG controller
@@ -23,10 +28,10 @@ use_elevators=false;
 accelerator_sensors=false;
 sensors_only_z = true;
 only_pos = false;
-rotation_dot = false
-join_cs = true
-make_cs_symmetric = false % TODO: Implement
-modes_to_be_removed = [5 6 11 12]; 
+rotation_dot = false;
+join_cs = true;
+make_cs_symmetric = false;
+modes_to_be_removed = []; 
 design_name = strcat(design_name, '_acc', num2str(accelerator_sensors), ...
     '_onlyz', num2str(sensors_only_z),...
     '_onlypos', num2str(only_pos),...
@@ -34,6 +39,7 @@ design_name = strcat(design_name, '_acc', num2str(accelerator_sensors), ...
     '_joinedcs', num2str(join_cs),...
     '_make_cs_symmetric', num2str(make_cs_symmetric), ...
     '_woIP_wo5thBM');
+
 setup_LQG_controller(route_directory, ...
                      case_name, ...
                      use_elevators, ...
@@ -55,7 +61,7 @@ case_name = strcat(case_name, design_name);
 load(strcat('./controller_files_matlab/', case_name, '.mat'));
 % Define directory where to find simulink files
 addpath(strcat(route_directory,'/../05_Utils/matlab_functions/'));
-simulink_file_directory = '/home/sduess/Documents/SHARPY_simulations/GLA_systems_for_very_flexible_aircraft/05_Utils/simulink_files/'%strcat(route_directory, '/../05_Utils/simulink_files/');
+simulink_file_directory = strcat(route_directory, '/../05_Utils/simulink_files/');
 
 % Get gust input
 gust_time_series = get_1minuscosine_gust_input(10, ...
@@ -83,26 +89,10 @@ figure(1); hold on;plot(simulation_output.actual_output.Time, simulation_output.
 plot(simulation_output_open_loop.actual_output.Time, simulation_output_open_loop.actual_output.Data(:,input_settings.index.eta_tip([3 3+6]))./(7.07/2)*100+6.2, 'k-'); hold off;
  figure(2); hold on;plot(simulation_output.control_input.Time, rad2deg(simulation_output.control_input.Data(:,1:num_cs)));hold off;
  figure(3); hold on;plot(simulation_output.control_input.Time, rad2deg(simulation_output.control_input.Data(:,num_cs+1:2*num_cs)));hold off;
-% figure(4);hold on; plot(simulation_output.actual_output.Time, rad2deg(simulation_output.actual_output.Data(:,32)));hold off;
-% figure(5); hold on;
-% plot_several_parameters_from_timeseries({simulation_output.actual_state}, ...
-%     'states', ...
-%     10, ...
-%     17, ...
-%     size(simulation_output.actual_state.Data, 2)); 
-figure(4); hold on;plot(simulation_output.control_input.Time, rad2deg(simulation_output.control_input.Data(:,1:num_cs/2)));hold off;
+.Time, rad2deg(simulation_output.control_input.Data(:,1:num_cs/2)));hold off;
  figure(5); hold on;plot(simulation_output.control_input.Time, rad2deg(simulation_output.control_input.Data(:,num_cs+1:num_cs + num_cs/2)));hold off;
 figure(6); hold on;plot(simulation_output.actual_output.Time, simulation_output.actual_output.Data(:,input_settings.index.eta_tip([3 3+6]))./(7.07/2)*100+6.2); 
 
-%%
-% plot_several_parameters_from_timeseries({simulation_output_open_loop.actual_state}, ...
-%     'states', ...
-%     10, ...
-%     17, ...
-%     size(simulation_output_open_loop.actual_state.Data, 2)); 
-% hold off
-
-%% 
 
 %% Get Poles
 num_cs = size(sys_LQR.B,2)-1
@@ -111,26 +101,12 @@ system_closed_loop = ss(sys_LQR.A-sys_LQR.B(:,1:num_cs) * controller_final.K, ..
         sys_LQR.B(:,end),...
         sys_LQR.C-sys_LQR.D(:,1:num_cs)*controller_final.K,...
         sys_LQR.D(:,end), ...
-        input_settings.dt);
-% system_orig_transf = get_system_for_pzmap(sys_orig, 1, input_settings.dt);
-% system_wo_IP_transf = get_system_for_pzmap(sys_wo_ip, 1, input_settings.dt);
-% system_wo_5678 = get_system_for_pzmap(sys_LQR, 1, input_settings.dt);
-% sys_orig_more_modes_tr0ansf = get_system_for_pzmap(sys_orig_more_modes, 1, input_settings.dt);
+        input_settings.dt)
+
 fig = figure(10)
-% pzmap(system_orig_transf, 'b') %, system_closed_loop)
 hold on;
 
-% pzmap(sys_orig_more_modes_transf, 'r') %, system_closed_loop)
-% 
-% pzmap(system_wo_5678, 'k') %, system_closed_loop)
-pzmap(system_open_loop, 'k') %, system_closed_loop)
-pzmap(system_closed_loop, 'r') %, system_closed_loop)
-% pzmap
-
+pzmap(system_open_loop, 'k')
+pzmap(system_closed_loop, 'r') 
 zgrid()
 
-function system_transformed = get_system_for_pzmap(system, num_cs, dt)
-system_transformed = ss(system.A(1:end-num_cs:1:end-num_cs,1:end-num_cs), system.B(1:end-num_cs,:), system.C(:,1:end-num_cs), system.D, dt);
-
-
-end
