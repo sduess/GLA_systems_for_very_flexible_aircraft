@@ -92,21 +92,28 @@ end
 %% Design LQR controller
 
 sys_LQR = ss(sys_final.A, sys_final.B(:,1:end-(num_thrust_inputs)), sys_final.C, sys_final.D(:,1:end-(num_thrust_inputs)), input_settings.dt);
-% controller_final = 1;
+
+if input_settings.rom_order > 0
 controller_final = setup_controller_struct(sys_LQR, ...
     LQR_tuning, ...
     size(sys_LQR.B,2)-num_ignored_last_columns, ...
     input_settings.num_aero_states, ...
     input_settings.num_modes,...
     num_rbm);
+    %% Design LQG controller
+    % TODO:  Thrust 
+    A_kf = sys_LQR.A(1:end-num_cs,1:end-num_cs);
+    B_kf = [sys_LQR.B(1:end-num_cs, 1:num_cs) sys_LQR.A(1:end-num_cs,end-num_cs+1:end) sys_LQR.B(1:end-num_cs,end)];
+    C_kf = sys_LQR.C(input_settings.sensors,1:end-num_cs);
+    D_kf =  [sys_LQR.D(input_settings.sensors, 1:num_cs) sys_LQR.C(input_settings.sensors, end-num_cs+1:end) sys_LQR.D(input_settings.sensors,end)];
+    sys_kf = ss(A_kf,B_kf,C_kf,D_kf,input_settings.dt);
+else
+    % bad  (but effective) option so far to avoid an error for full-order
+    % model from which neither a kalman filter nor a controller is planned
+    % to be synthesized.
+controller_final = 0;
+sys_kf = 0;
+end
 
-%% Design LQG controller
-% TODO: Thrust
-A_kf = sys_LQR.A(1:end-num_cs,1:end-num_cs);
-B_kf = [sys_LQR.B(1:end-num_cs, 1:num_cs) sys_LQR.A(1:end-num_cs,end-num_cs+1:end) sys_LQR.B(1:end-num_cs,end)];
-C_kf = sys_LQR.C(input_settings.sensors,1:end-num_cs);
-D_kf =  [sys_LQR.D(input_settings.sensors, 1:num_cs) sys_LQR.C(input_settings.sensors, end-num_cs+1:end) sys_LQR.D(input_settings.sensors,end)];
-
-sys_kf =  ss(A_kf, B_kf, C_kf, D_kf, input_settings.dt);
 end
 
