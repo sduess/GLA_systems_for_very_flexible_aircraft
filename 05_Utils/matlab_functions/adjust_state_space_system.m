@@ -1,61 +1,75 @@
-function state_space_parameter = adjust_state_space_system(state_space_system, input_settings)
-%convert_state_space_for_LQR Adjust extracted state space system
-%   The loaded state space system exported from SHARPy is adjusted here for
-%   the closed-loop simulations. This includes:
-%       - removing all unused inputs and rearranging for example the
-%         deflection of a control surface and its rate as both depend on
-%         each other
-%       - extracts the column from the B and D matrices that describe the
-%         effect of the gust and thrust input to the states if specified
+function adjusted_sys = adjust_state_space_system(state_space_system, input_settings)
+%adjust_state_space_system Adjust SHARPy state space system for simulation
+%   Processes the state space system exported from SHARPy and returns an
+%   adjusted system struct (adjusted_sys) ready for closed-loop simulation.
+%   Adjustments include:
+%       - dropping RBM integral states (if ROM and RBM are active)
+%       - extracting control surface input columns (B_cs, D_cs) and
+%         integrating control surface deflection (delta) as an augmented
+%         state, so the input becomes delta_dot
+%       - feeding delta through to the output matrix C
+%       - extracting gust disturbance columns (B_gust, D_gust) if requested
+%       - extracting thrust input columns (B_thrust, D_thrust) if requested
+%
+%   Inputs:
+%       state_space_system  - struct with fields A, B, C, D, Ts as exported
+%                             by SHARPy (read via read_SHARPy_state_space_system)
+%       input_settings      - struct with case parameters (see set_input_parameters
+%                             and the corresponding JSON parameter file)
+%
+%   Output:
+%       adjusted_sys        - struct containing the adjusted system matrices:
+%                             A, B_cs, C, D_cs, and optionally B_gust,
+%                             D_gust, B_thrust, D_thrust
 
 
 %% Drop integrals of RBM necessary to design LQR
 orig_size_A = size(state_space_system.A,1);
 if input_settings.rbm && input_settings.rom_order > 0
-    drop_begin = orig_size_A- 2 * input_settings.num_modes + 1; 
-    list_idx_state_removed = drop_begin:drop_begin+8;
+    drop_begin = orig_size_A- 2 * input_settings.num_modes + 1;
+    list_idx_state_removed = drop_begin:drop_begin + 9 - 1; % 9 rbm modes
     state_space_system = remove_state_from_state_space_model(state_space_system, list_idx_state_removed);
 end
 
 
-%% Reduce model with not used inputs
+%% Extract control surface input columns
 idx_input_end =input_settings.control_input_start + 2  * input_settings.num_control_surfaces - 1;
-idx_inputs = [input_settings.control_input_start:idx_input_end];
-state_space_parameter.B_cs = state_space_system.B(:,idx_inputs);
-state_space_parameter.D_cs = state_space_system.D(:,idx_inputs);  
+idx_inputs = input_settings.control_input_start:idx_input_end;
+adjusted_sys.B_cs = state_space_system.B(:,idx_inputs);
+adjusted_sys.D_cs = state_space_system.D(:,idx_inputs);
 
 
 %% Extract delta to state
-new_A_colum = state_space_parameter.B_cs(:,1 :input_settings.num_control_surfaces);
-A = [state_space_system.A new_A_colum; ...
+new_A_column = adjusted_sys.B_cs(:,1:input_settings.num_control_surfaces);
+A = [state_space_system.A new_A_column; ...
     zeros(input_settings.num_control_surfaces,...
          (size(state_space_system.A,2)+ input_settings.num_control_surfaces))];
 
-for counter = 0:1:input_settings.num_control_surfaces-1
+for counter = 0:input_settings.num_control_surfaces-1
     A(size(A,1)-counter,size(A,2)-counter) = 1; % Linear integration of delta dot
 end
-state_space_parameter.A = A;
+adjusted_sys.A = A;
 
-%Delete delta input and add delta_dot influence on delta 
-state_space_parameter.B_cs(:,1:input_settings.num_control_surfaces) = [];
-state_space_parameter.B_cs = [state_space_parameter.B_cs; eye(input_settings.num_control_surfaces) * state_space_system.Ts]; 
+%Delete delta input and add delta_dot influence on delta
+adjusted_sys.B_cs(:,1:input_settings.num_control_surfaces) = [];
+adjusted_sys.B_cs = [adjusted_sys.B_cs; eye(input_settings.num_control_surfaces) * state_space_system.Ts];
 
 % Adding feed through of the delta-input on the output on C as a new column
-% and deleting column added in C out of D; 
-state_space_parameter.C = [state_space_system.C state_space_parameter.D_cs(:,1:input_settings.num_control_surfaces)];
-state_space_parameter.D_cs(:, 1:input_settings.num_control_surfaces) = []; 
+% and deleting column added in C out of D;
+adjusted_sys.C = [state_space_system.C adjusted_sys.D_cs(:,1:input_settings.num_control_surfaces)];
+adjusted_sys.D_cs(:, 1:input_settings.num_control_surfaces) = [];
 
 
 %% Get Gust Disturbance Matrices
 if input_settings.get_gust
-    state_space_parameter.B_gust = [state_space_system.B(:,input_settings.gust_input); zeros(input_settings.num_control_surfaces, 1)];
-    state_space_parameter.D_gust = state_space_system.D(:,input_settings.gust_input);
+    adjusted_sys.B_gust = [state_space_system.B(:,input_settings.gust_input); zeros(input_settings.num_control_surfaces, 1)];
+    adjusted_sys.D_gust = state_space_system.D(:,input_settings.gust_input);
 end
 
 %% Get Thrust if applicable
 if input_settings.get_thrust
-    state_space_parameter.B_thrust = [state_space_system.B(:,input_settings.thrust_input); zeros(input_settings.num_control_surfaces, 1)];
-    state_space_parameter.D_thrust = state_space_system.D(:,input_settings.thrust_input);
+    adjusted_sys.B_thrust = [state_space_system.B(:,input_settings.thrust_input); zeros(input_settings.num_control_surfaces, 1)];
+    adjusted_sys.D_thrust = state_space_system.D(:,input_settings.thrust_input);
 end
 
 end
