@@ -3,71 +3,31 @@ import sharpy.utils.algebra as algebra
 import json
 import os
 
-def get_settings(flexop_model, flow, dt, **kwargs):
-    """
-    Generate settings dictionary for SHARPy simulation.
+_TOLERANCE                   = 1e-6
+_FSI_TOLERANCE               = 1e-4
+_STRUCTURAL_RELAXATION_FACTOR = 0.6
+_RELAXATION_FACTOR           = 0.0
+_NEWMARK_DAMP                = 0.5e-4
+_N_LOAD_STEPS                = 5
 
-    Args:
-        flexop_model (FlexopModel): An instance of the FlexopModel class containing the aircraft model.
-        flow (str): Flow solver to use.
-        dt (float): Time step size.
-        **kwargs: Additional keyword arguments for simulation parameters.
+
+def get_static_settings(flexop_model, u_inf, rho, alpha, cs_deflection, thrust,
+                         gravity=True,
+                         horseshoe=False,
+                         variable_wake=False,
+                         num_cores=2,
+                         tolerance=_TOLERANCE,
+                         fsi_tolerance=_FSI_TOLERANCE,
+                         n_load_steps=_N_LOAD_STEPS,
+                         structural_relaxation_factor=_STRUCTURAL_RELAXATION_FACTOR,
+                         nonlifting_body_interactions=False):
+    """Build settings for the static solver stack.
 
     Returns:
-        dict: A dictionary containing settings for the SHARPy simulation.
+        dict: Settings for NonLinearStatic, StaticUvlm, StaticCoupled, StaticTrim.
     """
-    # Simulation Parameters
-    alpha = kwargs.get('alpha', 0.)  # Angle of attack in radians
-    cs_deflection = kwargs.get('cs_deflection_initial', 0.)  # Control surface deflection in radians
-    u_inf = kwargs.get('u_inf', 10.)  # Freestream velocity in m/s
-    rho = kwargs.get('rho', 1.225)  # Air density in kg/m^3
-    thrust = kwargs.get('thrust', 0.)  # Thrust force
-    gust = kwargs.get('gust', False)  # Gust simulation flag
-    variable_wake = kwargs.get('variable_wake', False)  # Variable wake configuration flag
-
-    use_polars = kwargs.get('use_polars', False)  # Use polars for corrections
-
-    horseshoe = kwargs.get('horseshoe', False)  # Horseshoe vortex method flag
-    gravity = kwargs.get('gravity', True)  # Gravity effect flag
-    wake_length = kwargs.get('wake_length', 10)  # Length of wake
-    free_flight = kwargs.get('free_flight', False)  # Free-flight simulation flag
-    num_modes = kwargs.get('num_modes', 10)  # Number of modes
-
-    num_cores = kwargs.get('num_cores', 2)  # Number of CPU cores
-    tolerance = kwargs.get('tolerance', 1e-6)  # Tolerance for convergence
-    n_load_steps = kwargs.get('n_load_steps', 5)  # Number of load steps
-    fsi_tolerance = kwargs.get('fsi_tolerance', 1e-4)  # FSI tolerance
-    structural_relaxation_factor = kwargs.get('structural_relaxation_factor', 0)  # Structural relaxation factor
-    relaxation_factor = kwargs.get('relaxation_factor', 0)  # Relaxation factor
-    newmark_damp = kwargs.get('newmark_damp', 0.5e-4)  # Newmark damping factor
-
-    n_tstep = kwargs.get('n_tstep', 1)  # Number of time steps
-
-    # Initialize settings dictionary
     settings = {}
-    settings['SHARPy'] = {
-        'case': flexop_model.case_name,
-        'route': flexop_model.case_route,
-        'flow': flow,
-        'write_screen': 'on',
-        'write_log': 'on',
-        'log_folder': flexop_model.output_route,
-        'log_file': flexop_model.case_name + '.log'
-    }
 
-    # BeamLoader Settings
-    settings['BeamLoader'] = {
-        'unsteady': 'on',
-        'orientation': algebra.euler2quat(np.array([0., alpha, 0.]))
-    }
-
-    # AeroForcesCalculator Settings
-    settings['AeroForcesCalculator'] = {
-        'write_text_file': True,
-        'coefficients': False
-    }
-
-    # NonLinearStatic Settings
     settings['NonLinearStatic'] = {
         'print_info': 'off',
         'max_iterations': 150,
@@ -75,26 +35,24 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'delta_curved': 1e-1,
         'min_delta': tolerance,
         'gravity_on': gravity,
-        'gravity': 9.81
+        'gravity': 9.81,
     }
 
-    # StaticUvlm Settings
     settings['StaticUvlm'] = {
         'print_info': 'on',
         'horseshoe': horseshoe,
         'num_cores': num_cores,
-        'n_rollup': 0,  # int(wake_length * flexop_model.aero.m),
+        'n_rollup': 0,
         'velocity_field_generator': 'SteadyVelocityField',
         'velocity_field_input': {
             'u_inf': u_inf,
-            'u_inf_direction': [1., 0, 0]
+            'u_inf_direction': [1., 0, 0],
         },
         'rho': rho,
         'cfl1': bool(not variable_wake),
-        'nonlifting_body_interactions': kwargs.get("nonlifting_body_interactions", False)
+        'nonlifting_body_interactions': nonlifting_body_interactions,
     }
 
-    # StaticCoupled Settings
     settings['StaticCoupled'] = {
         'print_info': 'off',
         'structural_solver': 'NonLinearStatic',
@@ -105,65 +63,95 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'n_load_steps': n_load_steps,
         'tolerance': fsi_tolerance,
         'relaxation_factor': structural_relaxation_factor,
-        'nonlifting_body_interactions': kwargs.get("nonlifting_body_interactions", False)
+        'nonlifting_body_interactions': nonlifting_body_interactions,
     }
 
-    # StaticTrim Settings
     settings['StaticTrim'] = {
         'solver': 'StaticCoupled',
         'solver_settings': settings['StaticCoupled'],
         'initial_alpha': alpha,
         'initial_deflection': cs_deflection,
         'initial_thrust': thrust,
-        'tail_cs_index': [4, 5, 10,11],
+        'tail_cs_index': [4, 5, 10, 11],
         'thrust_nodes': [0],
         'fz_tolerance': 1e-10,
         'fx_tolerance': 1e-10,
         'm_tolerance': 1e-10,
         'max_iter': 200,
-        'save_info': True
+        'save_info': True,
     }
-    
-    # AerogridLoader Settings
+
+    return settings
+
+
+def get_dynamic_settings(flexop_model, dt, u_inf, rho, n_tstep,
+                          free_flight=True,
+                          gravity=True,
+                          num_cores=2,
+                          newmark_damp=_NEWMARK_DAMP,
+                          tolerance=_TOLERANCE,
+                          fsi_tolerance=_FSI_TOLERANCE,
+                          relaxation_factor=_RELAXATION_FACTOR,
+                          variable_wake=False,
+                          mstar=80,
+                          dict_wake_shape=None,
+                          gust_config=None,
+                          dynamic_cs_input=False,
+                          dict_predefined_cs_input_files=None,
+                          postprocessors=None,
+                          nonlifting_body_interactions=False,
+                          restart_case=False,
+                          include_unsteady_force_contribution=True):
+    """Build settings for the dynamic solver stack.
+
+    Returns:
+        dict: Settings for AerogridLoader, NonliftingbodygridLoader,
+            NonLinearDynamicCoupledStep, NonLinearDynamicPrescribedStep,
+            StepUvlm, DynamicCoupled.
+    """
+    if postprocessors is None:
+        postprocessors = ['BeamLoads', 'SaveData']
+    if dict_predefined_cs_input_files is None:
+        dict_predefined_cs_input_files = {}
+
+    settings = {}
+
+    # AerogridLoader
     settings['AerogridLoader'] = {
         'unsteady': 'on',
         'aligned_grid': 'on',
-        'mstar': kwargs.get('mstar', wake_length * flexop_model.aero.m),
+        'mstar': mstar,
         'wake_shape_generator': 'StraightWake',
         'wake_shape_generator_input': {
             'u_inf': u_inf,
             'u_inf_direction': [1., 0., 0.],
             'dt': dt,
-        }
+        },
     }
-    
-    # Handle special cases for horseshoe, variable wake, and dynamic cs input
-    if horseshoe:
-        settings['AerogridLoader']['mstar'] = 1
     if variable_wake:
         print("mstar = ", settings['AerogridLoader']['mstar'])
-        settings['AerogridLoader']['wake_shape_generator_input'] = kwargs.get('dict_wake_shape', {
+        settings['AerogridLoader']['wake_shape_generator_input'] = dict_wake_shape or {
             'dx1': flexop_model.aero.chord_main_tip / flexop_model.aero.m,
             'ndx1': 23,
             'r': 1.6,
-            'dxmax': 5 * flexop_model.aero.chord_main_root
-        })
-
-    if kwargs.get('dynamic_cs_input', False):
-        dict_predefined_cs_input_files = kwargs.get('dict_predefined_cs_input_files', {})
-        settings['AerogridLoader']['control_surface_deflection'] = [''] * flexop_model.aero.n_control_surfaces
+            'dxmax': 5 * flexop_model.aero.chord_main_root,
+        }
+    if dynamic_cs_input:
+        settings['AerogridLoader']['control_surface_deflection'] = (
+            [''] * flexop_model.aero.n_control_surfaces
+        )
         settings['AerogridLoader']['control_surface_deflection_generator_settings'] = {}
         for i_cs in range(flexop_model.aero.n_control_surfaces):
-            if str(i_cs) in dict_predefined_cs_input_files.keys() and dict_predefined_cs_input_files[str(i_cs)] is not None:
-                settings['AerogridLoader']['control_surface_deflection_generator_settings'][str(i_cs)] = {'dt': dt,
-                                                                                                          'deflection_file': dict_predefined_cs_input_files[str(i_cs)]} 
-
+            cs_file = dict_predefined_cs_input_files.get(str(i_cs))
+            if cs_file is not None:
+                settings['AerogridLoader']['control_surface_deflection_generator_settings'][str(i_cs)] = {
+                    'dt': dt,
+                    'deflection_file': cs_file,
+                }
                 settings['AerogridLoader']['control_surface_deflection'][i_cs] = 'DynamicControlSurface'
 
-    # NonliftingbodygridLoader Settings
     settings['NonliftingbodygridLoader'] = {}
 
-    # NonLinearDynamicCoupledStep Settings
     settings['NonLinearDynamicCoupledStep'] = {
         'print_info': 'off',
         'max_iterations': 950,
@@ -177,7 +165,6 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'initial_velocity': u_inf,
     }
 
-    # NonLinearDynamicPrescribedStep Settings
     settings['NonLinearDynamicPrescribedStep'] = {
         'print_info': 'off',
         'max_iterations': 950,
@@ -190,22 +177,6 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'dt': dt,
     }
 
-    # BeamPlot Settings
-    settings['BeamPlot'] = {}
-
-    # AerogridPlot Settings
-    settings['AerogridPlot'] = {
-        'include_rbm': 'off',
-        'include_applied_forces': 'on',
-        'minus_m_star': 5,
-        'u_inf': u_inf,
-        'plot_nonlifting_surfaces': kwargs.get("nonlifting_body_interactions", False)
-    }
-
-    # BeamLoads Settings
-    settings['BeamLoads'] = {'csv_output': True}
-
-    # StepUvlm Settings
     settings['StepUvlm'] = {
         'num_cores': num_cores,
         'convection_scheme': 2,
@@ -214,66 +185,38 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'velocity_field_generator': 'SteadyVelocityField',
         'velocity_field_input': {
             'u_inf': u_inf * int(not free_flight),
-            'u_inf_direction': [1., 0, 0]
+            'u_inf_direction': [1., 0, 0],
         },
         'rho': rho,
         'n_time_steps': n_tstep,
         'dt': dt,
-        'nonlifting_body_interactions': kwargs.get("nonlifting_body_interactions", False)
+        'nonlifting_body_interactions': nonlifting_body_interactions,
     }
-
-    # Handle gust settings if applicable
-    if gust:
-        gust_settings = kwargs.get('gust_settings', {
-            'gust_shape': '1-cos',
-            'gust_length': 10.,
-            'gust_intensity': 0.01,
-            'gust_offset': 0.
-        })
+    if gust_config is not None:
         settings['StepUvlm']['velocity_field_generator'] = 'GustVelocityField'
         settings['StepUvlm']['velocity_field_input'] = {
             'u_inf': u_inf,
             'u_inf_direction': [1., 0, 0],
             'relative_motion': bool(not free_flight),
-            'offset': gust_settings['gust_offset'],
-            'gust_shape': gust_settings['gust_shape'],
+            'offset': gust_config.gust_offset,
+            'gust_shape': gust_config.gust_shape,
         }
-        
-        if gust_settings['gust_shape'] == 'time varying':
-            # continuous gust
+        if gust_config.gust_shape == 'time varying':
             settings['StepUvlm']['velocity_field_input']['gust_parameters'] = {
-                'file': gust_settings['file'],
-                'gust_component': gust_settings['gust_component'],
-            }   
+                'file': gust_config.file,
+                'gust_component': gust_config.gust_component,
+            }
         else:
-            # discrete gust
             settings['StepUvlm']['velocity_field_input']['gust_parameters'] = {
-                'gust_length': gust_settings['gust_length'],
-                'gust_intensity': gust_settings['gust_intensity'] * u_inf,
-                'gust_component': gust_settings['gust_component'],
-            }  
+                'gust_length': gust_config.gust_length,
+                'gust_intensity': gust_config.gust_intensity * u_inf,
+                'gust_component': gust_config.gust_component,
+            }
 
-    # Determine structural solver based on free_flight
-    if free_flight:
-        structural_solver = 'NonLinearDynamicCoupledStep'
-    else:
-        structural_solver = 'NonLinearDynamicPrescribedStep'
-
-    # SaveData Settings
-    settings['SaveData'] = {
-        'save_aero': True,
-        'save_struct': True,
-    }
-
-    # Include linear settings if applicable
-    if 'LinearAssembler' in flow:
-        settings['SaveData']['save_linear'] = True
-        # settings['SaveData']['save_linear_uvlm'] = True
-        unsteady_force_distribution = False
-    else:
-        unsteady_force_distribution = True
-
-    # DynamicCoupled Settings
+    structural_solver = (
+        'NonLinearDynamicCoupledStep' if free_flight
+        else 'NonLinearDynamicPrescribedStep'
+    )
     settings['DynamicCoupled'] = {
         'structural_solver': structural_solver,
         'structural_solver_settings': settings[structural_solver],
@@ -287,38 +230,34 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'final_relaxation_factor': 0.05,
         'n_time_steps': n_tstep,
         'dt': dt,
-        'include_unsteady_force_contribution': unsteady_force_distribution,
-        'postprocessors': kwargs.get('postprocessors_dynamic', ['BeamLoads', 'SaveData']),
-        'postprocessors_settings': dict(),
-        'nonlifting_body_interactions': kwargs.get("nonlifting_body_interactions", False),
+        'include_unsteady_force_contribution': include_unsteady_force_contribution,
+        'postprocessors': postprocessors,
+        'postprocessors_settings': {},
+        'nonlifting_body_interactions': nonlifting_body_interactions,
     }
-    
-    # Adjust DynamicCoupled for restart case
-    if kwargs.get('restart_case', False):
+    if restart_case:
         settings['DynamicCoupled']['relaxation_factor'] = 0.
         settings['DynamicCoupled']['final_relaxation_factor'] = 0.
-    settings['PickleData'] = {}
-    # WriteVariablesTime Settings
-    settings['WriteVariablesTime'] = {
-        'structure_variables': ['pos'],
-        'structure_nodes': [flexop_model.structure.n_node_main - 1],
-        'cleanup_old_solution': 'on',
-    }
 
-    # Populate postprocessors settings
-    for postprocessor in settings['DynamicCoupled']['postprocessors']:
-        if postprocessor in settings.keys():
-            settings_postprocessor = settings[postprocessor]
-        else:
-            settings_postprocessor = {}  # Default settings
+    return settings
 
-        settings['DynamicCoupled']['postprocessors_settings'][postprocessor] = settings_postprocessor
 
-    # Handle closed-loop network settings
-    if kwargs.get('closed-loop', False):
-        settings['DynamicCoupled']['network_settings'] = kwargs.get('netowrk_settings', {})
+def get_linear_settings(flexop_model, dt, u_inf, rho, num_modes,
+                         free_flight=True,
+                         gravity=True,
+                         newmark_damp=_NEWMARK_DAMP,
+                         recover_accelerations=False,
+                         remove_gust_input=False,
+                         rom_settings=None,
+                         flow=None):
+    """Build settings for the linearisation solver stack.
 
-    # Modal Settings
+    Returns:
+        dict: Settings for Modal and LinearAssembler.
+    """
+    flow = flow or []
+    settings = {}
+
     settings['Modal'] = {
         'print_info': True,
         'use_undamped_modes': True,
@@ -329,141 +268,257 @@ def get_settings(flexop_model, flow, dt, **kwargs):
         'continuous_eigenvalues': 'off',
         'dt': dt,
         'plot_eigenvalues': False,
-        # 'rigid_modes_ppal_axes': True,
     }
 
-    # Include LinearAssembler settings if applicable
-    if 'LinearAssembler' in flow:
-        settings['LinearAssembler'] = {
-            'linear_system': 'LinearAeroelastic',
-            'inout_coordinates': 'nodes',
-            'recover_accelerations': kwargs.get('recover_accelerations', False),
-            'linear_system_settings': {
-                'beam_settings': {
-                    'modal_projection': True,
-                    'inout_coords': 'modes',
-                    'discrete_time': True,
-                    'newmark_damp': newmark_damp,
-                    'discr_method': 'newmark',
-                    'dt': dt,
-                    'proj_modes': 'undamped',
-                    'num_modes': num_modes,
-                    'print_info': 'on',
-                    'gravity': gravity,
-                },
-                'aero_settings': {
-                    'dt': dt,
-                    'integr_order': 2,
-                    'density': rho,
-                    'remove_predictor': True,
-                    'use_sparse': 'off',
-                    'gust_assembler': 'LeadingEdge', 
-                },
-                'track_body': free_flight,
-                'use_euler': free_flight,
-            }
+    settings['LinearAssembler'] = {
+        'linear_system': 'LinearAeroelastic',
+        'inout_coordinates': 'nodes',
+        'recover_accelerations': recover_accelerations,
+        'linear_system_settings': {
+            'track_body': free_flight,
+            'use_euler': free_flight,
+            'beam_settings': {
+                'modal_projection': True,
+                'inout_coords': 'modes',
+                'discrete_time': True,
+                'newmark_damp': newmark_damp,
+                'discr_method': 'newmark',
+                'dt': dt,
+                'proj_modes': 'undamped',
+                'num_modes': num_modes,
+                'print_info': 'on',
+                'gravity': gravity,
+            },
+            'aero_settings': {
+                'dt': dt,
+                'integr_order': 2,
+                'density': rho,
+                'remove_predictor': True,
+                'use_sparse': 'off',
+                'gust_assembler': 'LeadingEdge',
+            },
+        },
+    }
+
+    if remove_gust_input:
+        settings['LinearAssembler']['linear_system_settings']['aero_settings']['remove_inputs'] = ['u_gust']
+
+    if rom_settings is not None and rom_settings.use:
+        aero = settings['LinearAssembler']['linear_system_settings']['aero_settings']
+        aero['rom_method'] = rom_settings.rom_method
+        aero['rom_method_settings'] = rom_settings.rom_method_settings
+
+    if 'AsymptoticStability' in flow:
+        aero = settings['LinearAssembler']['linear_system_settings']['aero_settings']
+        aero['ScalingDict'] = {
+            'length': flexop_model.aero.chord_main_root / 2,
+            'speed': u_inf,
+            'density': rho,
         }
+        aero['remove_inputs'] = ['u_gust']
 
-        # Remove Gust from input if applicaple
-        if kwargs.get('remove_gust_input_in_statespace', False):
-            settings['LinearAssembler']['linear_system_settings']['aero_settings']['remove_inputs'] = ['u_gust']
+    return settings
 
-        # Handle ROM settings if applicable
-        rom_settings = kwargs.get('rom_settings', {'use': False})
-        if rom_settings['use']:
-            settings['SaveData']['save_rom'] = True
-            settings['LinearAssembler']['linear_system_settings']['aero_settings']['rom_method'] = rom_settings['rom_method']
-            settings['LinearAssembler']['linear_system_settings']['aero_settings']['rom_method_settings'] = rom_settings['rom_method_settings']
-        # Scale system if asymptotic stability solver is used
-        if 'AsymptoticStability' in flow:
-            settings['LinearAssembler']['linear_system_settings']['aero_settings']['ScalingDict'] =  {
-                'length': flexop_model.aero.chord_main_root/2,
-                'speed': u_inf,
-                'density': rho
-                }
-            
-            settings['LinearAssembler']['linear_system_settings']['aero_settings']['remove_inputs'] = ['u_gust']
-    # Update settings for polar corrections if required
-    if use_polars:
-        settings = update_settings_for_polar_corrections(settings)
 
-    # AsymptoticStability Settings
-    settings['AsymptoticStability'] = {
-        'print_info': 'on',
-        'frequency_cutoff': 0,
-        'export_eigenvalues': 'on',
-        'modes_to_plot': num_modes,
-        'velocity_analysis': [30, 60, 7]
+def get_settings(flexop_model, flow, dt, u_inf, rho, alpha, cs_deflection, thrust,
+                  aircraft_config=None, run_config=None,
+                  gust_config=None, rom_settings=None):
+    """Assemble the full SHARPy settings dictionary.
+
+    Calls get_static_settings, get_dynamic_settings, and (when LinearAssembler
+    is in the flow) get_linear_settings, then appends output/postprocessor
+    settings and wires up DynamicCoupled.postprocessors_settings.
+
+    Args:
+        flexop_model: Configured FLEXOP model instance.
+        flow: Ordered list of SHARPy solver names.
+        dt: Time step [s].
+        u_inf: Free-stream speed [m/s].
+        rho: Air density [kg/m^3].
+        alpha: Angle of attack [rad].
+        cs_deflection: Initial control-surface deflection [rad].
+        thrust: Engine thrust [N].
+        aircraft_config: Aircraft and discretisation parameters.
+        run_config: Solver and execution parameters.
+        gust_config: Gust parameters, or None for no gust.
+        rom_settings: ROM parameters, or None.
+
+    Returns:
+        dict: Full SHARPy settings dictionary.
+    """
+    from flexop_simulation_config import AircraftConfig, RunConfig
+    aircraft_config = aircraft_config or AircraftConfig()
+    run_config      = run_config      or RunConfig()
+
+    # --- extract from aircraft_config ---
+    gravity                      = aircraft_config.gravity
+    horseshoe                    = aircraft_config.horseshoe
+    variable_wake                = aircraft_config.variable_wake
+    nonlifting_body_interactions = aircraft_config.nonlifting_interactions
+    mstar                        = aircraft_config.mstar
+    dict_wake_shape              = aircraft_config.dict_wake_shape
+    use_polars                   = aircraft_config.use_polars
+
+    # --- extract from run_config ---
+    num_cores                      = run_config.num_cores
+    n_tstep                        = run_config.n_tstep
+    free_flight                    = run_config.free_flight
+    num_modes                      = run_config.num_modes
+    recover_accelerations          = run_config.recover_accelerations
+    remove_gust_input              = run_config.remove_gust_input_in_statespace
+    postprocessors_dynamic         = run_config.postprocessors_dynamic
+    dynamic_cs_input               = run_config.dynamic_cs_input
+    dict_predefined_cs_input_files = run_config.dict_predefined_cs_input_files or {}
+    restart_case                   = run_config.restart_case
+
+    include_unsteady_force = 'LinearAssembler' not in flow
+
+    # --- base settings ---
+    settings = {}
+    settings['SHARPy'] = {
+        'case':         flexop_model.case_name,
+        'route':        flexop_model.case_route,
+        'flow':         flow,
+        'write_screen': 'on',
+        'write_log':    'on',
+        'log_folder':   flexop_model.output_route,
+        'log_file':     flexop_model.case_name + '.log',
+    }
+    settings['BeamLoader'] = {
+        'unsteady':    'on',
+        'orientation': algebra.euler2quat(np.array([0., alpha, 0.])),
     }
 
-    # LiftDistribution Settings
-    settings['LiftDistribution'] = {'rho': rho}
+    # --- static ---
+    settings.update(get_static_settings(
+        flexop_model, u_inf, rho, alpha, cs_deflection, thrust,
+        gravity=gravity,
+        horseshoe=horseshoe,
+        variable_wake=variable_wake,
+        num_cores=num_cores,
+        nonlifting_body_interactions=nonlifting_body_interactions,
+    ))
 
-    # AeroForcesCalculator Settings
+    # --- dynamic ---
+    settings.update(get_dynamic_settings(
+        flexop_model, dt, u_inf, rho, n_tstep,
+        free_flight=free_flight,
+        gravity=gravity,
+        num_cores=num_cores,
+        variable_wake=variable_wake,
+        mstar=mstar,
+        dict_wake_shape=dict_wake_shape,
+        gust_config=gust_config,
+        dynamic_cs_input=dynamic_cs_input,
+        dict_predefined_cs_input_files=dict_predefined_cs_input_files,
+        postprocessors=postprocessors_dynamic,
+        nonlifting_body_interactions=nonlifting_body_interactions,
+        restart_case=restart_case,
+        include_unsteady_force_contribution=include_unsteady_force,
+    ))
+
+    # --- output / postprocessor settings ---
+    settings['SaveData'] = {
+        'save_aero':   True,
+        'save_struct': True,
+    }
+    settings['BeamPlot']  = {}
+    settings['BeamLoads'] = {'csv_output': True}
+    settings['AerogridPlot'] = {
+        'include_rbm':            'off',
+        'include_applied_forces': 'on',
+        'minus_m_star':           5,
+        'u_inf':                  u_inf,
+        'plot_nonlifting_surfaces': nonlifting_body_interactions,
+    }
     settings['AeroForcesCalculator'] = {
         'write_text_file': 'on',
-        'nonlifting_body': kwargs.get("nonlifting_body_interactions", False),
-        'coefficients': 'off',
-        'S_ref': flexop_model.reference_area,
-        'q_ref': 0.5 * rho * u_inf ** 2
+        'nonlifting_body': nonlifting_body_interactions,
+        'coefficients':    'off',
+        'S_ref':           flexop_model.reference_area,
+        'q_ref':           0.5 * rho * u_inf ** 2,
     }
-
-    # WriteVariablesTime Settings (structure_variables: ['pos', 'psi'])
+    settings['PickleData'] = {}
     settings['WriteVariablesTime'] = {
-        'structure_variables': ['pos', 'psi'],
-        'structure_nodes': list(range(flexop_model.structure.n_node_main + 1)),
-        'cleanup_old_solution': 'on',
-        'delimiter': ','
+        'structure_variables':    ['pos', 'psi'],
+        'structure_nodes':        list(range(flexop_model.structure.n_node_main + 1)),
+        'cleanup_old_solution':   'on',
+        'delimiter':              ',',
     }
-
-    # SaveParametricCase Settings
+    settings['AsymptoticStability'] = {
+        'print_info':        'on',
+        'frequency_cutoff':  0,
+        'export_eigenvalues': 'on',
+        'modes_to_plot':     num_modes,
+        'velocity_analysis': [30, 60, 7],
+    }
+    settings['LiftDistribution']   = {'rho': rho}
     settings['SaveParametricCase'] = {
         'parameters': {'alpha': np.rad2deg(alpha), 'u_inf': u_inf},
-        'save_case': 'off'
+        'save_case':  'off',
     }
+
+    # --- linear (optional) ---
+    if 'LinearAssembler' in flow:
+        settings.update(get_linear_settings(
+            flexop_model, dt, u_inf, rho, num_modes,
+            free_flight=free_flight,
+            gravity=gravity,
+            recover_accelerations=recover_accelerations,
+            remove_gust_input=remove_gust_input,
+            rom_settings=rom_settings,
+            flow=flow,
+        ))
+        settings['SaveData']['save_linear'] = True
+        if rom_settings is not None and rom_settings.use:
+            settings['SaveData']['save_rom'] = True
+
+    # --- wire up postprocessors_settings ---
+    for pp in settings['DynamicCoupled']['postprocessors']:
+        settings['DynamicCoupled']['postprocessors_settings'][pp] = settings.get(pp, {})
+
+    if use_polars:
+        settings = update_settings_for_polar_corrections(settings)
 
     return settings
 
 
 def update_settings_for_polar_corrections(settings):
-    """
-    Update settings for polar corrections.
+    """Add polar-correction force settings to StaticCoupled and DynamicCoupled.
 
     Args:
-        settings (dict): Existing settings dictionary.
+        settings: Full SHARPy settings dictionary (modified in place).
 
     Returns:
-        dict: Updated settings with polar correction settings.
+        dict: Updated settings dictionary.
     """
     print("update polar settings!")
     aoa_cl_deg = [-3.28415340783741, 0]
     for solver in ['StaticCoupled', 'DynamicCoupled']:
         settings[solver]['correct_forces_method'] = 'PolarCorrection'
         settings[solver]['correct_forces_settings'] = {
-            'cd_from_cl': 'off',
-            'correct_lift': 'on',
+            'cd_from_cl':       'off',
+            'correct_lift':     'on',
             'moment_from_polar': 'on',
-            'skip_surfaces': [],
-            'aoa_cl0': np.deg2rad(aoa_cl_deg),
+            'skip_surfaces':    [],
+            'aoa_cl0':          np.deg2rad(aoa_cl_deg),
             'write_induced_aoa': False,
         }
     return settings
 
+
 def get_skipped_attributes(list_to_be_saved_attr):
-    """
-    Get a list of skipped attributes from a predefined list.
+    """Return attributes from the full list that are not in list_to_be_saved_attr.
 
     Args:
-        list_to_be_saved_attr (list): List of attributes to be saved.
+        list_to_be_saved_attr: Attributes that should be kept.
 
     Returns:
-        list: List of skipped attributes.
+        list: Attributes to skip (i.e. the complement of list_to_be_saved_attr).
     """
     route_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     with open(route_dir + '/list_aero_and_structural_ts_attributes.json', 'r') as f:
         list_of_all_attributes = json.load(f)
-    
     for attribute in list_to_be_saved_attr:
         list_of_all_attributes.remove(attribute)
-
     return list_of_all_attributes

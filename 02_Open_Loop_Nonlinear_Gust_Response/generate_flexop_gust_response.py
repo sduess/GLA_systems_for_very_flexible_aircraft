@@ -1,226 +1,311 @@
 """
-(Super)FLEXOP Gust Response Simulation Script
+SuperFLEXOP open-loop nonlinear gust response simulation.
 
-This script sets up and runs a FlexOP simulation for analyzing the aeroelastic response of 
-a flexible aircraft to a gust. 
+Runs a nonlinear aeroelastic simulation for a 1-cosine or continuous
+(time-varying) gust and writes SHARPy case files and output to disk.
 
-Usage:
-- Modify the simulation_settings, initial_trim_values, and gust_settings to match your specific case.
-- Run the script to perform the FlexOP Simulation.
+Usage (command line)::
 
+    python generate_flexop_gust_response.py
+
+Usage (import)::
+
+    from generate_flexop_gust_response import run_gust_response
+    run_gust_response(gust_length=15.0, gust_intensity=0.05)
 """
 
-# Import necessary modules
-import sys, os
-sys.path.insert(1,'../../01_Aircraft_Model_Generator')
+import dataclasses
+import os
+import sys
+from typing import Optional
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../01_Aircraft_Model_Generator'))
 from generate_flexop_case import generate_flexop_case
+from flexop_simulation_config import (
+    U_INF, RHO,
+    AircraftConfig, RunConfig, TrimValues, GustConfig,
+)
 
-# Define folder
-file_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-cases_route = '../../cases/'
+_FILE_DIR    = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+_CASES_ROUTE = os.path.join(_FILE_DIR, '../cases/')
+
+_TRIM_VALUES = TrimValues(
+    alpha=  6.406771329255241468e-03,   # angle of attack [rad]
+    delta= -3.325087601649625961e-03,   # elevator deflection [rad]
+    thrust= 2.052055145318664842e+00,   # engine thrust [N]
+)
+
+_AIRCRAFT_CONFIG = AircraftConfig(
+    # all structural/aero defaults are inherited from AircraftConfig;
+    # only values that differ from the class defaults are listed here
+    horseshoe=False,
+    use_polars=False,
+    variable_wake=False,
+)
+
+_RUN_CONFIG = RunConfig(
+    n_tstep=2700,
+    num_cores=4,
+    free_flight=True,
+    postprocessors_dynamic=['BeamLoads', 'SaveData', 'BeamPlot', 'AerogridPlot'],
+    dynamic_cs_input=False,
+    dynamic_cs_input_file=os.path.join(_FILE_DIR, 'predefined_cs_inputs/linear_LQG_L10_I10.txt'),
+    restart_case=False,
+    restart_pickle_file=None,
+    save_pickle_file=False,
+)
+
+# Continuous gust input file (only needed when continuous_gust=True)
+_CONTINUOUS_GUST_FILE = os.path.join(
+    _FILE_DIR,
+    '../05_Utils/gust_inputs/'
+    'turbulence_time_600s_uinf_45_altitude_800_moderate_noise_seeds_12782_12783_12784_12785_1.txt'
+)
 
 
-# Define simulation parameters
-u_inf = 45  # Cruise flight speed in m/s
-rho = 1.1336  # Air density in kg/m^3 (corresponding to an altitude of 800m)
-alpha_rad = 6.406771329255241468e-03  # Angle of attack in radians (approximately 0.389 degrees)
+def _build_gust_config(continuous, gust_length, gust_intensity,
+                        num_chord_panels, gust_offset_panels,
+                        gust_input_file, lateral, three_d) -> GustConfig:
+    """Return a GustConfig for generate_flexop_case.
 
-# Simulation settings
-simulation_settings = {
-    'lifting_only': True,  # Ignore nonlifting bodies
-    'wing_only': False,  # Simulate the full configuration (wing+tail)
-    'dynamic': True,  # Perform unsteady simulation
-    'wake_discretisation': False,  # Use variable wake discretization scheme
-    'gravity': True,  # Include gravitational effects
-    'horseshoe': False,  # Disable horseshoe wake modeling
-    'use_polars': False,  # Apply polar corrections
-    'free_flight': True,  # Simulate unclamped aircraft
-    'use_trim': False,  # Enable aircraft trim
-    # Gust Settings
-    'use_gust': True,  # 
-    'continuous_gust': False,  # 
-    'gust_input_file': os.path.join(file_dir, '../05_Utils/gust_inputs/turbulence_time_600s_uinf_45_altitude_800_moderate_noise_seeds_12782_12783_12784_12785_1.txt'),
-    'lateral_gust': False,  # 
-    '3D_velocity_component': False,
-    'gust_offset': 500,
-    # Discretisation
-    'mstar': 80,  # Number of streamwise wake panels
-    'num_chord_panels': 8,  # Chordwise lattice discretization
-    'n_elem_multiplier': 2,  # Multiplier for spanwise node discretization
-    # Others
-    'n_tstep': 2700,  # Number of simulation time steps
-    'num_cores': 4,  # Number of CPU cores used for parallelization
-    'sigma': 0.3,  # Stiffness scaling factor (1 for FLEXOP, 0.3 for SuperFLEXOP)
-    'dynamic_cs_input': False, # True if pre-defined control surface deflection used
-    'dynamic_cs_input_file': file_dir + '/predefined_cs_inputs/linear_LQG_L10_I10.txt', # File containing the pre-defined control surface deflection inputs
-    'postprocessors_dynamic': ['BeamLoads', 'SaveData', 'BeamPlot', 'AerogridPlot'],
-    # Restart/ Pickle options
-    'restart_case': False,
-    'restart_pickle_file': file_dir + '/../lib/sharpy/output/superflexop_free_gust_comp2_L_10_I_10_p_0_f_0_cfl_1_uinf45//superflexop_free_gust_comp2_L_10_I_10_p_0_f_0_cfl_1_uinf45.pkl',# None,
-    'save_pickle_file': False,
-}
+    Args:
+        continuous: Use time-varying gust instead of 1-cosine.
+        gust_length: Gust wavelength [m] (1-cos only).
+        gust_intensity: Intensity as fraction of U_INF (1-cos only).
+        num_chord_panels: Number of chordwise aero panels (used to convert offset).
+        gust_offset_panels: Gust start offset in chord panels upstream.
+        gust_input_file: Path to time-series gust file (continuous only).
+        lateral: Use lateral (y) gust component.
+        three_d: Use all three velocity components.
 
-# Set initial aircraft trim values
-initial_trim_values = {
-    'alpha': alpha_rad,
-    'delta': -3.325087601649625961e-03,
-    'thrust': 2.052055145318664842e+00
-}
+    Returns:
+        GustConfig: Configured gust settings.
 
-# Set Gust settings
-if simulation_settings["use_gust"]:
-    if simulation_settings["continuous_gust"]:
-        gust_settings = {
-            'use_gust': True,  # Enable gust modeling
-            'gust_shape': 'time varying',
-            'file': simulation_settings['gust_input_file'], # File includes time series of gust velocities, i.e. 4 columns: time[s]  U_x U_y U_z
-            'gust_offset': simulation_settings['gust_offset']*0.471/simulation_settings['num_chord_panels'],
-            'gust_component': [2], # list of velocity components considered (0: U_x, 1: U_y, 2: U_z)   
-        }
-        if simulation_settings['lateral_gust']:
-            gust_settings['gust_component']= [1]
-        elif simulation_settings['3D_velocity_component']:
-            gust_settings['gust_component']= [0, 1, 2]
+    Raises:
+        ValueError: If continuous=True and gust_input_file is missing or does not exist.
+    """
+    chord  = 0.471  # main root chord [m]
+    offset = gust_offset_panels * chord / num_chord_panels
 
-        if simulation_settings['gust_input_file'] is None or \
-            not os.path.exists(simulation_settings['gust_input_file']):
-            raise "Please specify a valid gust input file!"
-    else:
-        gust_settings = {
-            'use_gust': True,  # Enable gust modeling
-            'gust_shape': '1-cos',  # Gust shape function
-            'gust_length': 10.0,  # Gust length in seconds
-            'gust_intensity': 0.1,  # Gust intensity
-            'gust_offset': simulation_settings['gust_offset']*0.471/simulation_settings['num_chord_panels'],
-            'gust_component': 2,
-        }
-        if simulation_settings["lateral_gust"]:
-            gust_settings['gust_component']= 1
-
-else:
-    gust_settings = {'use_gust':False}
-
-# Set pre-defined control surface inputs 
-if simulation_settings["dynamic_cs_input"]:
-    route_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-
-    dict_predefined_cs_input_files = {
-        '0' : simulation_settings["dynamic_cs_input_file"], # aileron 1 (inboard right)
-        '1' : simulation_settings["dynamic_cs_input_file"], # aileron 2
-        '2' : simulation_settings["dynamic_cs_input_file"], # aileron 3
-        '3' : simulation_settings["dynamic_cs_input_file"],# aileron 4 (outboard right)
-        '4' : None, # elevator 1 (inboard right)
-        '5' : None, # elevator 2 (outboard right)
-        '6' : simulation_settings["dynamic_cs_input_file"], # aileron 5 (inboard left)
-        '7' : simulation_settings["dynamic_cs_input_file"], # aileron 6
-        '8' : simulation_settings["dynamic_cs_input_file"], # aileron 7
-        '9' :  simulation_settings["dynamic_cs_input_file"], # aileron 8 (outboard left)
-        '10' : None, # elevator 3 (inboard left)
-        '11' : None, # elevator 4 (outboard left))
-    }
-    ailerons_type = 1
-else:
-    ailerons_type = 0
-    dict_predefined_cs_input_files = {}
-
-# Set wake shape inputs if needed for variable wake discretization
-if simulation_settings['wake_discretisation']:
-    dict_wake_shape = {
-        'dx1': 0.471 / simulation_settings['num_chord_panels'],
-        'ndx1': 23,
-        'r': 1.6,
-        'dxmax': 5 * 0.471
-    }
-    simulation_settings['mstar'] = 35
-else:
-    dict_wake_shape = None
-
-# Define the flow sequence
-if not simulation_settings['restart_case']:
-    flow = [
-        'BeamLoader',
-        'AerogridLoader',
-        'NonliftingbodygridLoader',
-        # 'AerogridPlot',
-        'BeamPlot',
-        'StaticCoupled',
-        'StaticTrim',
-        'DynamicCoupled',
-    ]
-
-    # Remove certain steps based on simulation settings
-    if simulation_settings['lifting_only']:
-        flow.remove('NonliftingbodygridLoader')
-    if simulation_settings['use_trim']:
-        flow.remove('StaticCoupled')
-    else:
-        flow.remove('StaticTrim')
-else:
-    flow = ['DynamicCoupled']
-if simulation_settings['save_pickle_file']:
-    flow.append('PickleData')
-
-# Loop over various gust lengths
-list_gust_lengths = [10]  # List of gust lengths to simulate
-
-for gust_length in list_gust_lengths:
-    gust_settings['gust_length'] = gust_length
-
-    # Generate a case name based on simulation settings
-    if simulation_settings["continuous_gust"]:
-        str_vel_components = ''
-        for component in gust_settings['gust_component']:
-            str_vel_components += str(component)
-        case_name = 'superflexop_free_gust_continuous_comp{}_p_{}_f_{}_cfl_{}_uinf{}'.format(
-            str_vel_components,
-            int(simulation_settings['use_polars']),
-            int(not simulation_settings['lifting_only']),
-            int(not simulation_settings['wake_discretisation']),
-            int(u_inf)
+    if continuous:
+        if gust_input_file is None or not os.path.exists(gust_input_file):
+            raise ValueError(
+                "A valid gust_input_file is required for continuous gust. "
+                f"Got: {gust_input_file}"
+            )
+        if lateral:
+            component = [1]
+        elif three_d:
+            component = [0, 1, 2]
+        else:
+            component = [2]
+        return GustConfig(
+            gust_shape='time varying',
+            gust_offset=offset,
+            gust_component=component,
+            file=gust_input_file,
         )
-    else:        
-        case_name = 'superflexop_free_gust_comp{}_L_{}_I_{}_p_{}_f_{}_cfl_{}_uinf{}'.format(
-            gust_settings['gust_component'],
-            gust_settings['gust_length'],
-            int(gust_settings['gust_intensity'] * 100),
-            int(simulation_settings['use_polars']),
-            int(not simulation_settings['lifting_only']),
-            int(not simulation_settings['wake_discretisation']),
-            int(u_inf)
+    else:
+        return GustConfig(
+            gust_shape='1-cos',
+            gust_offset=offset,
+            gust_component=1 if lateral else 2,
+            gust_length=gust_length,
+            gust_intensity=gust_intensity,
         )
-    
-    # Include 'nonlifting' in the case name if nonlifting bodies are considered
-    if simulation_settings["wing_only"]:
-        case_name += '_wing_only'
-    if simulation_settings["dynamic_cs_input"]:
-        case_name += '_dynamic_cs_input'
-    if simulation_settings['restart_case']:
-        case_name += '_restart'
-    # Generate the FlexOP model and start the simulation
-    flexop_model = generate_flexop_case(
-        u_inf,
-        rho,
-        flow,
-        initial_trim_values,
-        case_name,
-        cases_route=cases_route,
-        gust_settings=gust_settings,
-        dict_wake_shape=dict_wake_shape,
-        **simulation_settings,
-        ailerons_type=ailerons_type,
-        dict_predefined_cs_input_files=dict_predefined_cs_input_files,
-        nonlifting_interactions=bool(not simulation_settings["lifting_only"])
+
+
+def _build_flow(use_trim, restart, save_pickle, lifting_only):
+    """Return the ordered SHARPy solver flow list.
+
+    Args:
+        use_trim: Use StaticTrim instead of StaticCoupled.
+        restart: Start from a pickled checkpoint, skipping static solvers.
+        save_pickle: Append PickleData to the flow.
+        lifting_only: Exclude NonliftingbodygridLoader.
+
+    Returns:
+        list[str]: Ordered SHARPy solver names.
+    """
+    if restart:
+        flow = ['DynamicCoupled']
+    else:
+        flow = [
+            'BeamLoader',
+            'AerogridLoader',
+            'NonliftingbodygridLoader',
+            'BeamPlot',
+            'StaticCoupled',
+            'StaticTrim',
+            'DynamicCoupled',
+        ]
+        if lifting_only:
+            flow.remove('NonliftingbodygridLoader')
+        if use_trim:
+            flow.remove('StaticCoupled')
+        else:
+            flow.remove('StaticTrim')
+    if save_pickle:
+        flow.append('PickleData')
+    return flow
+
+
+def _build_case_name(gust_config: GustConfig, ac: AircraftConfig,
+                      rc: RunConfig, continuous: bool) -> str:
+    """Derive a descriptive case name from the simulation parameters.
+
+    Args:
+        gust_config: Gust configuration.
+        ac: Aircraft configuration.
+        rc: Run configuration.
+        continuous: Whether a time-varying gust is used.
+
+    Returns:
+        str: Unique descriptive case name.
+    """
+    if continuous:
+        components = ''.join(str(c) for c in gust_config.gust_component)
+        name = 'superflexop_free_gust_continuous_comp{}_p_{}_f_{}_cfl_{}_uinf{}'.format(
+            components,
+            int(ac.use_polars),
+            int(not ac.lifting_only),
+            int(not ac.variable_wake),
+            int(U_INF),
+        )
+    else:
+        name = 'superflexop_free_gust_comp{}_L_{}_I_{}_p_{}_f_{}_cfl_{}_uinf{}'.format(
+            gust_config.gust_component,
+            gust_config.gust_length,
+            int(gust_config.gust_intensity * 100),
+            int(ac.use_polars),
+            int(not ac.lifting_only),
+            int(not ac.variable_wake),
+            int(U_INF),
+        )
+    if ac.wing_only:
+        name += '_wing_only'
+    if rc.dynamic_cs_input:
+        name += '_dynamic_cs_input'
+    if rc.restart_case:
+        name += '_restart'
+    return name
+
+
+def _build_cs_input_files(cs_file):
+    """Map each aileron index to cs_file and elevator indices to None.
+
+    Args:
+        cs_file: Path to the control surface deflection time-series file.
+
+    Returns:
+        dict[str, str | None]: Mapping from control surface index (as string) to file path.
+    """
+    aileron_indices  = [0, 1, 2, 3, 6, 7, 8, 9]   # ailerons (right + left)
+    elevator_indices = [4, 5, 10, 11]               # elevators
+    return {
+        **{str(i): cs_file for i in aileron_indices},
+        **{str(i): None    for i in elevator_indices},
+    }
+
+
+def run_gust_response(
+    gust_length: float = 10.0,
+    gust_intensity: float = 0.1,
+    continuous_gust: bool = False,
+    gust_offset_panels: int = 500,
+    lateral_gust: bool = False,
+    three_d_gust: bool = False,
+    gust_input_file: Optional[str] = None,
+    aircraft_config: Optional[AircraftConfig] = None,
+    run_config: Optional[RunConfig] = None,
+):
+    """Run a SuperFLEXOP nonlinear gust response simulation.
+
+    Args:
+        gust_length: Gust length for 1-cos gust [m]. Ignored for continuous gust.
+        gust_intensity: Gust intensity as a fraction of U_INF (e.g. 0.1 = 10%).
+        continuous_gust: Use a time-varying gust from file instead of 1-cosine.
+        gust_offset_panels: Gust start offset expressed as number of chord panels upstream.
+        lateral_gust: Use lateral (y) gust component instead of vertical (z).
+        three_d_gust: Use all three velocity components. Overrides lateral_gust.
+        gust_input_file: Path to the time-series gust file. Required when continuous_gust=True.
+        aircraft_config: Full aircraft configuration. Defaults to _AIRCRAFT_CONFIG.
+            Use dataclasses.replace(_AIRCRAFT_CONFIG, mstar=60) for partial overrides.
+        run_config: Full run configuration. Defaults to _RUN_CONFIG.
+
+    Returns:
+        Configured and executed FLEXOP model.
+    """
+    ac = aircraft_config or _AIRCRAFT_CONFIG
+    rc = run_config      or _RUN_CONFIG
+
+    # Variable wake: update mstar and supply wake shape parameters
+    if ac.variable_wake:
+        chord = 0.471
+        ac = dataclasses.replace(ac,
+            mstar=35,
+            dict_wake_shape={
+                'dx1':   chord / ac.num_chord_panels,
+                'ndx1':  23,
+                'r':     1.6,
+                'dxmax': 5 * chord,
+            },
+        )
+
+    # Pre-defined control surface inputs
+    if rc.dynamic_cs_input:
+        rc = dataclasses.replace(rc,
+            dict_predefined_cs_input_files=_build_cs_input_files(rc.dynamic_cs_input_file),
+        )
+        ac = dataclasses.replace(ac, ailerons_type=1)
+    else:
+        ac = dataclasses.replace(ac, ailerons_type=0)
+
+    # Non-lifting body interactions: derive from lifting_only
+    ac = dataclasses.replace(ac, nonlifting_interactions=not ac.lifting_only)
+
+    gust_config = _build_gust_config(
+        continuous=continuous_gust,
+        gust_length=gust_length,
+        gust_intensity=gust_intensity,
+        num_chord_panels=ac.num_chord_panels,
+        gust_offset_panels=gust_offset_panels,
+        gust_input_file=gust_input_file or _CONTINUOUS_GUST_FILE,
+        lateral=lateral_gust,
+        three_d=three_d_gust,
     )
 
-    # Start simulation
-    if not simulation_settings['restart_case']:
-        flexop_model.run()
-    else:
-        assert simulation_settings['restart_pickle_file'] is not None, "Define a pickle file to restart from"
-        
-        sys.path.insert(1,'../../05_Utils')
-        import restart_simulation_from_pickle as restart 
-        restart.restart_simulation_from_pickle(cases_route, 
-                                            case_name,
-                                            simulation_settings['restart_pickle_file'])
+    flow = _build_flow(
+        use_trim=True,
+        restart=rc.restart_case,
+        save_pickle=rc.save_pickle_file,
+        lifting_only=ac.lifting_only,
+    )
 
+    case_name = _build_case_name(gust_config, ac, rc, continuous=continuous_gust)
+
+    model = generate_flexop_case(
+        U_INF, RHO, flow, _TRIM_VALUES, case_name,
+        cases_route=_CASES_ROUTE,
+        aircraft_config=ac,
+        run_config=rc,
+        gust_config=gust_config,
+    )
+
+    if not rc.restart_case:
+        model.run()
+    else:
+        assert rc.restart_pickle_file is not None, \
+            "restart_pickle_file must be set in run_config when restart_case=True"
+        sys.path.insert(0, os.path.join(_FILE_DIR, '../05_Utils'))
+        import restart_simulation_from_pickle as restart
+        restart.restart_simulation_from_pickle(
+            _CASES_ROUTE, case_name, rc.restart_pickle_file
+        )
+
+    return model
+
+
+if __name__ == '__main__':
+    # Default: single 1-cosine gust, length 10 m, intensity 10 % of U_INF
+    run_gust_response()
