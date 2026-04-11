@@ -32,7 +32,7 @@ if use_elevator
 end
 num_control_surfaces = num_ailerons + num_elevators;
 num_ignored_last_columns = 1 + num_thrust_inputs; % Gust (1) + thrust inputs
-num_rbm = int8(input_settings.rbm)*9;
+num_rbm = double(input_settings.rbm)*9;
 num_cs=num_control_surfaces;
 %% Reduce cs inputs by assuming same deflection/join ailerons to one
 if join_cs 

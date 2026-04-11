@@ -3,9 +3,8 @@ function [Q, R] = define_Q_and_R_matrices_for_LQR(num_inputs, ...
                          num_rbm, LQR_tuning)
     R = LQR_tuning.R_values;
     num_structural_modes = num_modes - num_rbm;
-    Q = diag([ones(double(num_aero_states) + 2*double(num_structural_modes) + ...
-                   double(num_rbm) + double(num_inputs),...
-                  1,'double')]) .* LQR_tuning.initial_diagonal_values; 
+    n_states = num_aero_states + 2*num_structural_modes + num_rbm + num_inputs;
+    Q = diag(ones(n_states, 1)) .* LQR_tuning.initial_diagonal_values;
    
     % Penalize aero states
    idx_start = 0;
